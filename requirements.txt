@@ -1,0 +1,23 @@
+# Core Gemini AI Engine
+google-genai>=1.0.0
+
+# Speech Recognition & Synthesis
+SpeechRecognition>=3.10.0
+edge-tts>=6.1.0
+PyAudio>=0.2.13
+
+# Remote Bridge & Networking
+paramiko>=3.4.0
+requests>=2.31.0
+
+# HUD Server & Web Framework
+Flask>=3.0.0
+flask-cors>=4.0.0
+
+# System Telemetry & Utilities
+psutil>=5.9.0
+python-dotenv>=1.0.0
+wikipedia>=1.4.0
+
+# Smart Home Integration (Optional)
+miraie-ac>=0.1.5
