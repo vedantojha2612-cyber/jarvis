@@ -1,0 +1,4430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>JARVIS OS — Holographic HUD</title>
+<link rel="manifest" href="/manifest.json">
+<!-- Apple / iPad PWA Full Screen Tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JARVIS">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/888/888879.png">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+:root {
+  --bg: #000000;
+  --amber: #f59e0b;
+  --amber-core: #ffaa33;
+  --amber-bright: #fbbf24;
+  --amber-dim: #92400e;
+  --amber-deep: #78350f;
+  --amber-subtle: rgba(245, 158, 11, 0.12);
+  --amber-border: rgba(245, 158, 11, 0.26);
+  --amber-glow: rgba(245, 158, 11, 0.38);
+  --text-gold: #fef3c7;
+  --text-dim: #b45309;
+  --mono: "SF Mono", "Fira Code", "Courier New", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+html, body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  color: var(--amber);
+  font-family: var(--sans);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── 1. FULLSCREEN 3D VIEWPORT CANVAS ─────────────────────── */
+#celestial-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  cursor: grab;
+  display: block;
+}
+#celestial-viewport:active {
+  cursor: grabbing;
+}
+
+/* ── 2. TOP-LEFT FLOATING TACTICAL HUD (MATCHING SCREENSHOT) ─ */
+.tactical-hud {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+  z-index: 10;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  pointer-events: none;
+}
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.hud-label {
+  color: var(--amber-dim);
+  width: 64px;
+  font-weight: 600;
+}
+.hud-val {
+  color: var(--amber);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audio-bar-track {
+  width: 90px;
+  height: 3.5px;
+  background: rgba(245, 158, 11, 0.18);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.audio-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 65%;
+  background: var(--amber-bright);
+  box-shadow: 0 0 10px var(--amber-glow);
+  transition: width 0.08s ease;
+}
+
+/* ── 3. TOP-RIGHT CLOCK & BRAND HUD (MATCHING SCREENSHOT) ─── */
+.top-right-hud {
+  position: absolute;
+  top: 24px;
+  right: 36px;
+  z-index: 10;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.hud-digital-clock {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--amber-bright);
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+.hud-brand-title {
+  font-family: var(--sans);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.hud-brand-title:hover {
+  text-shadow: 0 0 20px var(--amber-glow);
+  color: var(--text-gold);
+}
+.hud-launcher-btn {
+  background: rgba(14, 8, 3, 0.85);
+  border: 1px solid var(--amber-border);
+  border-radius: 6px;
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hud-launcher-btn:hover {
+  background: var(--amber-subtle);
+  border-color: var(--amber-bright);
+  color: #ffffff;
+  box-shadow: 0 0 14px var(--amber-glow);
+}
+
+/* ── 4. BOTTOM-LEFT REAL-TIME TERMINAL (MATCHING SCREENSHOT) ─ */
+.terminal-feed {
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  z-index: 10;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+  max-width: 460px;
+}
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--amber);
+  opacity: 0.88;
+}
+.log-ts {
+  color: var(--amber-dim);
+  font-size: 10px;
+}
+.log-tag {
+  color: #000000;
+  font-weight: 700;
+  background: var(--amber-bright);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.log-msg {
+  color: var(--text-gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 5. BOTTOM-RIGHT TACTICAL RADAR WIDGET (MATCHING SCREENSHOT) ─ */
+.tactical-radar-box {
+  position: absolute;
+  bottom: 24px;
+  right: 32px;
+  z-index: 10;
+  width: 145px;
+  height: 95px;
+  background: rgba(8, 4, 1, 0.88);
+  border: 1px solid var(--amber-border);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.9), inset 0 0 15px rgba(245, 158, 11, 0.06);
+  backdrop-filter: blur(8px);
+}
+.radar-canvas-wrap {
+  width: 100%;
+  height: 65px;
+  position: relative;
+}
+#radar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.radar-caption {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  color: var(--amber-dim);
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ── 6. SUBSYSTEM SUB-NAVIGATION & INTRA-CLUSTER BREADCRUMBS ── */
+.subsystem-subnav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.16);
+  border-radius: 9px;
+  padding: 6px 8px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.subnav-pill {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+}
+.subnav-pill:hover {
+  background: rgba(245, 158, 11, 0.18);
+  color: #ffffff;
+  border-color: var(--amber-bright);
+}
+.subnav-pill.active {
+  background: var(--amber-bright);
+  color: #000000;
+  font-weight: 700;
+  border-color: var(--amber-bright);
+  box-shadow: 0 0 10px var(--amber-glow);
+}
+
+/* ── DRAWER RESIZING & MAXIMIZE CONTROLS ── */
+.drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drawer-head-btn {
+  background: transparent;
+  border: none;
+  color: var(--amber-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.drawer-head-btn:hover {
+  color: #ffffff;
+  background: rgba(245, 158, 11, 0.15);
+}
+.drawer-resizer {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 18px;
+  height: 18px;
+  cursor: se-resize;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  color: var(--amber-bright);
+  opacity: 0.55;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 50;
+  user-select: none;
+}
+.drawer-resizer:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* ── HUD 3D ZOOM CONTROLLER ── */
+.hud-zoom-ctrl {
+  position: absolute;
+  bottom: 84px;
+  right: 32px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(8, 4, 1, 0.9);
+  border: 1px solid var(--amber-border);
+  border-radius: 9px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+}
+.zoom-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 5px;
+  color: var(--amber-bright);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.zoom-btn:hover {
+  background: var(--amber-bright);
+  color: #000;
+}
+.zoom-disp {
+  font-size: 10px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0 5px;
+  cursor: pointer;
+}
+.zoom-disp:hover {
+  color: var(--amber-bright);
+}
+
+.grid-section-title {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--amber-dim);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+  padding: 6px 2px 3px 2px;
+  margin-top: 4px;
+}
+
+/* ── 7. BOTTOM FLOATING COMMAND DOCK ───────────────────────── */
+.bottom-dock {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: 90%;
+  max-width: 600px;
+  background: rgba(8, 4, 1, 0.88);
+  border: 1px solid var(--amber-border);
+  border-radius: 14px;
+  padding: 10px 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.98), 0 0 25px rgba(245, 158, 11, 0.1);
+  backdrop-filter: blur(14px);
+  transition: all 0.2s;
+}
+.bottom-dock:focus-within {
+  border-color: var(--amber-bright);
+  box-shadow: 0 14px 45px rgba(0,0,0,1), 0 0 30px var(--amber-glow);
+}
+.dock-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dock-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-gold);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  letter-spacing: 0.04em;
+}
+.dock-input::placeholder {
+  color: var(--amber-dim);
+}
+.dock-action-btn {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid var(--amber-border);
+  border-radius: 8px;
+  color: var(--amber);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dock-action-btn:hover {
+  background: var(--amber-bright);
+  color: #000000;
+  box-shadow: 0 0 12px var(--amber-glow);
+}
+.dock-quick-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(245, 158, 11, 0.12);
+  overflow-x: auto;
+}
+.dock-chip {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--amber);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dock-chip:hover {
+  background: var(--amber-bright);
+  color: #000000;
+  border-color: var(--amber-bright);
+}
+
+/* ── 8. SLIDE-OUT CHAT / CONSOLE DRAWER (MATCHING VIDEO) ──── */
+.chat-drawer {
+  position: absolute;
+  top: 0;
+  left: -440px;
+  width: 420px;
+  max-width: 90vw;
+  height: 100vh;
+  background: rgba(6, 3, 1, 0.94);
+  border-right: 1px solid var(--amber-border);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  box-shadow: 20px 0 50px rgba(0,0,0,0.98), 0 0 35px rgba(245, 158, 11, 0.1);
+  backdrop-filter: blur(18px);
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0.1, 1);
+}
+.chat-drawer.open {
+  transform: translateX(440px);
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  margin-bottom: 16px;
+}
+.drawer-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+}
+.drawer-close {
+  background: transparent;
+  border: none;
+  color: var(--amber-dim);
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.drawer-close:hover {
+  color: #ffffff;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+}
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 88%;
+}
+.msg-user {
+  align-self: flex-end;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid var(--amber-border);
+  color: var(--text-gold);
+}
+.msg-jarvis {
+  align-self: flex-start;
+  background: rgba(18, 10, 4, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  color: #ffffff;
+}
+
+/* ── 9. TOP-RIGHT APP LAUNCHER MATRIX (MATCHING VIDEO) ────── */
+.apps-launcher-grid {
+  position: absolute;
+  top: 80px;
+  right: 32px;
+  width: 280px;
+  background: rgba(8, 4, 1, 0.94);
+  border: 1px solid var(--amber-border);
+  border-radius: 14px;
+  padding: 16px;
+  z-index: 25;
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  box-shadow: 0 16px 45px rgba(0,0,0,0.98), 0 0 25px rgba(245, 158, 11, 0.12);
+  backdrop-filter: blur(16px);
+}
+.apps-launcher-grid.open {
+  display: grid;
+}
+.app-tile {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: center;
+}
+.app-tile:hover {
+  background: rgba(245, 158, 11, 0.24);
+  border-color: var(--amber-bright);
+  box-shadow: 0 0 15px var(--amber-glow);
+  transform: translateY(-2px);
+}
+.app-tile i {
+  font-size: 18px;
+  color: var(--amber-bright);
+}
+.app-tile span {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+/* ── 10. TACTICAL FEATURE DRAWERS (USER'S REAL APIS) ──────── */
+.feature-drawer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.92);
+  opacity: 0;
+  pointer-events: none;
+  display: none !important;
+  width: 90%;
+  max-width: 580px;
+  height: auto;
+  min-width: 360px;
+  min-height: 280px;
+  max-height: 86vh;
+  background: rgba(10, 5, 2, 0.96);
+  border: 1px solid var(--amber-border);
+  border-radius: 16px;
+  padding: 22px;
+  z-index: 30;
+  box-shadow: 0 25px 60px rgba(0,0,0,1), 0 0 40px rgba(245, 158, 11, 0.14);
+  backdrop-filter: blur(24px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+}
+.feature-drawer.drawer-wide {
+  max-width: 780px;
+}
+.feature-drawer.maximized {
+  width: 96vw !important;
+  max-width: 96vw !important;
+  height: 94vh !important;
+  max-height: 94vh !important;
+  border-radius: 12px;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+}
+.feature-drawer.maximized .drawer-scroll-body {
+  max-height: calc(94vh - 120px) !important;
+}
+.feature-drawer.open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+}
+.feature-drawer.drawer-wide {
+  max-width: 720px;
+}
+.drawer-scroll-body {
+  max-height: calc(85vh - 75px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.drawer-scroll-body::-webkit-scrollbar { width: 5px; }
+.drawer-scroll-body::-webkit-scrollbar-track { background: rgba(10, 5, 2, 0.4); }
+.drawer-scroll-body::-webkit-scrollbar-thumb { background: var(--amber-dim); border-radius: 3px; }
+.drawer-scroll-body::-webkit-scrollbar-thumb:hover { background: var(--amber); }
+.feature-drawer.open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+.ac-dial-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 18px 0;
+}
+.ac-dial {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px dashed var(--amber-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.12);
+}
+.ac-dial-num {
+  font-size: 46px;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--sans);
+  line-height: 1;
+}
+.ac-dial-unit {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--amber-bright);
+  letter-spacing: 0.15em;
+  margin-top: 4px;
+}
+
+/* Toast Notifications */
+#toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-30px);
+  background: rgba(14, 8, 3, 0.95);
+  border: 1px solid var(--amber-bright);
+  color: #ffffff;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.9), 0 0 20px var(--amber-glow);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 100;
+  transition: all 0.22s ease;
+  letter-spacing: 0.06em;
+}
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* === FULL STUDY & JARVIS FEATURES PALETTE === */
+:root {
+  --s1: rgba(14, 8, 3, 0.95);
+  --s2: rgba(22, 12, 5, 0.9);
+  --s3: rgba(35, 20, 8, 0.85);
+  --border: rgba(245, 158, 11, 0.22);
+  --border2: rgba(245, 158, 11, 0.38);
+  --accent: #f59e0b;
+  --accent2: #fbbf24;
+  --text: #fef3c7;
+  --text2: #e0d0b0;
+  --text3: #b45309;
+  --purple: #d97706;
+  --green: #10b981;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --yellow: #fbbf24;
+  --r: 8px;
+  --r2: 12px;
+  --r3: 16px;
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-sub {
+  font-size: 11px;
+  color: var(--amber-dim);
+  font-family: var(--mono);
+  margin-bottom: 14px;
+}
+.card {
+  background: rgba(16, 9, 3, 0.85);
+  border: 1px solid var(--amber-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--amber-bright);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grid { display: grid; gap: 12px; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 640px) {
+  .g2, .g3 { grid-template-columns: 1fr; }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--amber-border);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text-gold);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--amber-bright);
+  box-shadow: 0 0 12px var(--amber-glow);
+}
+.btn-primary {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  border-color: var(--amber-bright);
+  color: #ffffff;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 0 16px var(--amber-glow);
+}
+.btn-ghost {
+  background: transparent;
+  border-color: var(--amber-border);
+  color: var(--amber-bright);
+}
+.btn-purple {
+  background: linear-gradient(135deg, #b45309, #78350f);
+  border-color: var(--amber-bright);
+  color: #fef3c7;
+}
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-full { width: 100%; }
+.input {
+  background: rgba(5, 2, 1, 0.9);
+  border: 1px solid var(--amber-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-gold);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.input:focus {
+  border-color: var(--amber-bright);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+.input-sm { padding: 6px 10px; font-size: 11px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid var(--amber-border);
+  color: var(--amber-bright);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.chip:hover, .chip.active {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: var(--amber-bright);
+  color: #ffffff;
+}
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.session-start {
+  background: rgba(20, 10, 3, 0.85);
+  border: 1px solid var(--amber-border);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+}
+.session-start:hover {
+  border-color: var(--amber-bright);
+  box-shadow: 0 0 16px var(--amber-glow);
+  transform: translateY(-2px);
+}
+.session-title { font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 4px; }
+.session-desc { font-size: 11px; color: var(--amber-dim); font-family: var(--mono); }
+
+.pomo-wrap { display: flex; flex-direction: column; align-items: center; position: relative; padding: 10px 0; }
+.pring { transform: rotate(-90deg); }
+.ptrack { fill: none; stroke: rgba(245, 158, 11, 0.15); stroke-width: 7; }
+.pfill { fill: none; stroke: var(--amber-bright); stroke-width: 7; stroke-linecap: round; stroke-dasharray: 339.29; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+.pomo-center { position: absolute; top: 38px; display: flex; flex-direction: column; align-items: center; }
+.pomo-time { font-size: 32px; font-weight: 800; font-family: var(--mono); color: #ffffff; }
+.pomo-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--amber-bright); }
+.pomo-btns { display: flex; gap: 8px; margin-top: 14px; }
+.pomo-modes { display: flex; gap: 6px; margin-top: 12px; }
+
+.fc-stage { perspective: 1000px; min-height: 180px; cursor: pointer; margin: 12px 0; }
+.fc-card { width: 100%; height: 180px; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 12px; }
+.fc-card.flipped { transform: rotateY(180deg); }
+.fc-front, .fc-back {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  background: rgba(18, 9, 3, 0.95);
+  border: 1px solid var(--amber-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.fc-back { transform: rotateY(180deg); background: rgba(28, 14, 5, 0.95); border-color: var(--amber-bright); }
+.fc-badge { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber-dim); margin-bottom: 8px; font-weight: 700; }
+.fc-q, .fc-a { font-size: 13px; color: var(--text-gold); line-height: 1.5; }
+
+.qa-btn {
+  background: rgba(18, 9, 3, 0.85);
+  border: 1px solid var(--amber-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-gold);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.qa-btn:hover { background: rgba(245, 158, 11, 0.2); border-color: var(--amber-bright); }
+.qa-btn.primary { background: linear-gradient(135deg, rgba(217, 119, 6, 0.3), rgba(180, 83, 9, 0.3)); border-color: var(--amber-bright); }
+.res-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(16, 8, 3, 0.7);
+  border: 1px solid var(--amber-border); border-radius: 8px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s ease;
+}
+.res-item:hover { background: rgba(245, 158, 11, 0.18); border-color: var(--amber-bright); }
+.res-emoji { font-size: 18px; }
+.res-info { flex: 1; }
+.res-name { font-size: 12px; font-weight: 700; color: #fff; }
+.res-desc { font-size: 10px; color: var(--amber-dim); font-family: var(--mono); }
+
+.goal-item {
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+  background: rgba(14, 7, 2, 0.75); border: 1px solid var(--amber-border); border-radius: 8px; font-size: 12px; margin-bottom: 4px;
+}
+.goal-left { display: flex; align-items: center; gap: 8px; }
+.goal-txt.done { text-decoration: line-through; color: var(--amber-dim); }
+.goal-del { cursor: pointer; color: #ef4444; opacity: 0.6; padding: 2px 6px; }
+.goal-del:hover { opacity: 1; }
+
+.note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+.note-card {
+  background: rgba(20, 10, 3, 0.85); border: 1px solid var(--amber-border); border-radius: 10px; padding: 12px; position: relative; font-size: 12px;
+}
+.note-del { position: absolute; top: 8px; right: 8px; color: #ef4444; cursor: pointer; opacity: 0.5; }
+.note-del:hover { opacity: 1; }
+.note-time { font-size: 10px; color: var(--amber-dim); margin-top: 8px; font-family: var(--mono); }
+
+.stat-card {
+  background: rgba(18, 9, 3, 0.85); border: 1px solid var(--amber-border); border-radius: 10px; padding: 14px; text-align: center;
+}
+.stat-num { font-size: 26px; font-weight: 800; color: var(--amber-bright); font-family: var(--mono); }
+.stat-desc { font-size: 11px; color: var(--amber-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+.chart-wrap { display: flex; align-items: flex-end; gap: 8px; height: 120px; padding: 10px 0; border-bottom: 1px solid var(--amber-border); }
+.bar-col { flex: 1; background: linear-gradient(to top, var(--amber-dim), var(--amber-bright)); border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.4s ease; }
+
+.clip-box {
+  background: rgba(12, 6, 2, 0.9); border: 1px solid var(--amber-border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--text-gold);
+}
+.clip-box:empty::before { content: "Clipboard is empty"; color: var(--amber-dim); font-style: italic; }
+
+.diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.diag-card { background: rgba(18, 9, 3, 0.85); border: 1px solid var(--amber-border); border-radius: 8px; padding: 12px; }
+.diag-lbl { font-size: 10px; color: var(--amber-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.diag-val { font-size: 15px; font-weight: 700; color: #ffffff; margin-top: 4px; }
+.diag-sub { font-size: 10px; color: var(--amber-bright); margin-top: 2px; font-family: var(--mono); }
+
+.wiki-result { display: none; margin-top: 14px; }
+.wiki-result.show { display: block; }
+.wiki-title { font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+.wiki-body { font-size: 12px; line-height: 1.6; color: var(--text-gold); max-height: 240px; overflow-y: auto; }
+.wiki-meta { margin-top: 8px; font-size: 11px; color: var(--amber-dim); display: flex; justify-content: space-between; align-items: center; }
+
+.media-target-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.mt-btn {
+  flex: 1; padding: 8px; border-radius: 8px; background: rgba(245, 158, 11, 0.08); border: 1px solid var(--amber-border); color: var(--amber-bright); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.mt-btn.active { background: rgba(245, 158, 11, 0.28); border-color: var(--amber-bright); color: #fff; }
+
+.j-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.j-modal.show { display: flex; }
+.j-modal-box {
+  background: rgba(12, 6, 2, 0.96); border: 1px solid var(--amber-bright); border-radius: 16px; padding: 24px; width: 90%; max-width: 520px; box-shadow: 0 20px 50px rgba(0,0,0,0.9), 0 0 30px var(--amber-glow);
+}
+.j-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.j-modal-title { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+#ss-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 100; }
+#ss-modal.show { display: flex; }
+.ss-inner { background: rgba(12, 6, 2, 0.96); border: 1px solid var(--amber-bright); border-radius: 16px; padding: 20px; width: 92%; max-width: 900px; }
+.ss-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ss-live { display: flex; align-items: center; gap: 8px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; animation: pulse-live 1.5s infinite; }
+@keyframes pulse-live { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+.ss-img-wrap { width: 100%; min-height: 260px; max-height: 60vh; background: #000; border: 1px solid var(--amber-border); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
+.ss-img-wrap img { width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.ss-close { background: none; border: none; color: var(--amber-bright); font-size: 18px; cursor: pointer; }
+.ss-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: var(--amber-dim); font-family: var(--mono); }
+
+</style>
+</head>
+<body>
+
+<!-- 1. FULLSCREEN CELESTIAL ASTROLABE CANVAS -->
+<canvas id="celestial-viewport"></canvas>
+
+<!-- 2. TOP-LEFT FLOATING TACTICAL HUD -->
+<div class="tactical-hud">
+  <div class="hud-row">
+    <span class="hud-label">STATE</span>
+    <span class="hud-val" id="hud-state">LISTENING</span>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">AUDIO</span>
+    <div class="audio-bar-track">
+      <div class="audio-bar-fill" id="hud-audio-bar"></div>
+    </div>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">POWER</span>
+    <span class="hud-val" id="hud-power">55%</span>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">UPTIME</span>
+    <span class="hud-val" id="hud-uptime">00:11</span>
+  </div>
+  <div class="hud-row">
+    <span class="hud-label">TEMP</span>
+    <span class="hud-val" id="hud-temp">24°C</span>
+  </div>
+</div>
+
+<!-- 3. TOP-RIGHT CLOCK & BRAND TITLE -->
+<div class="top-right-hud">
+  <div class="hud-digital-clock" id="clock-disp">--:--:--</div>
+  <div class="hud-brand-title" onclick="toggleAppsMenu()">JARVIS</div>
+  <button class="hud-launcher-btn" onclick="toggleAppsMenu()">
+    <i class="fa fa-grip"></i> SUBSYSTEMS
+  </button>
+</div>
+
+<!-- 4. BOTTOM-LEFT REAL-TIME TERMINAL LOG FEED -->
+<div class="terminal-feed" id="hud-terminal">
+  <div class="log-entry">
+    <span class="log-ts">11:50:12</span>
+    <span class="log-tag">LINK</span>
+    <span class="log-msg">BACKEND ONLINE · 192.168.1.6:5000</span>
+  </div>
+  <div class="log-entry">
+    <span class="log-ts">11:50:12</span>
+    <span class="log-tag">SYSTEM</span>
+    <span class="log-msg">JARVIS CORE · HEISENBERG MATRIX ACTIVE</span>
+  </div>
+  <div class="log-entry">
+    <span class="log-ts">11:50:14</span>
+    <span class="log-tag">AC</span>
+    <span class="log-msg" id="hud-log-ac">PANASONIC MIRAIe CONNECTED · 24°C COOL</span>
+  </div>
+  <div class="log-entry">
+    <span class="log-ts">11:50:16</span>
+    <span class="log-tag">MEDIA</span>
+    <span class="log-msg" id="hud-log-media">YOUTUBE DISPATCHER READY</span>
+  </div>
+</div>
+
+<!-- FLOATING TACTICAL ZOOM CONTROLLER -->
+<div class="hud-zoom-ctrl">
+  <button class="zoom-btn" onclick="adjust3DZoom(-0.15)" title="Zoom Out"><i class="fa fa-minus"></i></button>
+  <span id="hud-zoom-val" class="zoom-disp" onclick="reset3DZoom()" title="Click to Reset 100%">100%</span>
+  <button class="zoom-btn" onclick="adjust3DZoom(0.15)" title="Zoom In"><i class="fa fa-plus"></i></button>
+</div>
+
+<!-- 5. BOTTOM-RIGHT TACTICAL RADAR WIDGET -->
+<div class="tactical-radar-box">
+  <div class="radar-canvas-wrap">
+    <canvas id="radar-canvas"></canvas>
+  </div>
+  <div class="radar-caption">
+    <span>SYSTEM RADAR</span>
+    <span style="color:#10b981">ONLINE</span>
+  </div>
+</div>
+
+<!-- 7. BOTTOM FLOATING COMMAND DOCK -->
+<div class="bottom-dock">
+  <div class="dock-input-wrap">
+    <input type="text" id="cmd-input" class="dock-input" placeholder="Enter command... e.g. 'briefing', 'play believer on laptop', 'set ac to 22', 'solve screen'" onkeypress="if(event.key==='Enter')sendCmd()">
+    <button class="dock-action-btn" onclick="toggleMic()"><i class="fa fa-microphone"></i></button>
+    <button class="dock-action-btn" onclick="sendCmd()"><i class="fa fa-paper-plane"></i></button>
+  </div>
+  <div class="dock-quick-chips">
+    <span class="dock-chip" onclick="quick('morning briefing')"><i class="fa fa-sun"></i> Briefing</span>
+    <span class="dock-chip" onclick="quick('play believer on laptop')"><i class="fa fa-play"></i> Play Believer</span>
+    <span class="dock-chip" onclick="quick('stop music')"><i class="fa fa-stop" style="color:#ef4444"></i> Stop Music</span>
+    <span class="dock-chip" onclick="quick('solve screen problem')"><i class="fa fa-laptop"></i> Solve Screen</span>
+    <span class="dock-chip" onclick="quick('set ac to 22')"><i class="fa fa-snowflake"></i> Set AC 22°C</span>
+    <span class="dock-chip" onclick="quick('study mode protocol')"><i class="fa fa-book"></i> Study Protocol</span>
+  </div>
+</div>
+
+<!-- 8. SLIDE-OUT CHAT / CONSOLE DRAWER -->
+<div class="chat-drawer" id="chat-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-terminal"></i> Tactical Console</div>
+    <button class="drawer-close" onclick="toggleChat()">&times;</button>
+  </div>
+  <div class="chat-messages" id="chat-msgs">
+    <div class="msg-bubble msg-jarvis">Good day, Heisenberg. All systems are synchronized and listening.</div>
+  </div>
+  <div style="margin-top:14px;display:flex;gap:8px">
+    <input type="text" id="drawer-input" class="dock-input" style="background:rgba(245,158,11,0.08);padding:10px 14px;border:1px solid var(--amber-border);border-radius:8px" placeholder="Transmit command..." onkeypress="if(event.key==='Enter')sendDrawerCmd()">
+    <button class="dock-action-btn" style="width:40px;height:40px" onclick="sendDrawerCmd()"><i class="fa fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<!-- 9. TOP-RIGHT APP LAUNCHER MATRIX (GROUPED SUBSYSTEMS) -->
+<div class="apps-launcher-grid" id="apps-grid">
+  <div class="grid-section-title">ACADEMIC & RESEARCH</div>
+  <div class="app-tile" onclick="openDrawer('study-drawer');toggleAppsMenu()"><i class="fa fa-graduation-cap"></i><span>Study Hub</span></div>
+  <div class="app-tile" onclick="openDrawer('wiki-drawer');toggleAppsMenu()"><i class="fa fa-book-open"></i><span>Wikipedia</span></div>
+  <div class="app-tile" onclick="openDrawer('solver-drawer');toggleAppsMenu()"><i class="fa fa-wand-magic-sparkles"></i><span>AI Solver</span></div>
+  <div class="app-tile" onclick="openDrawer('notes-drawer');toggleAppsMenu()"><i class="fa fa-note-sticky"></i><span>Sticky Notes</span></div>
+
+  <div class="grid-section-title">HARDWARE & SYSTEM</div>
+  <div class="app-tile" onclick="openDrawer('pc-drawer');toggleAppsMenu()"><i class="fa fa-server"></i><span>Hardware PC</span></div>
+  <div class="app-tile" onclick="openDrawer('diag-drawer');toggleAppsMenu()"><i class="fa fa-microchip"></i><span>Diagnostics</span></div>
+  <div class="app-tile" onclick="openDrawer('files-drawer');toggleAppsMenu()"><i class="fa fa-folder-open"></i><span>Files</span></div>
+  <div class="app-tile" onclick="openDrawer('clipboard-drawer');toggleAppsMenu()"><i class="fa fa-clipboard"></i><span>Clipboard</span></div>
+
+  <div class="grid-section-title">CLIMATE & SCHEDULES</div>
+  <div class="app-tile" onclick="openDrawer('ac-drawer');toggleAppsMenu()"><i class="fa fa-snowflake"></i><span>MirAIe AC</span></div>
+  <div class="app-tile" onclick="openDrawer('reminders-drawer');toggleAppsMenu()"><i class="fa fa-bell"></i><span>Reminders</span></div>
+  <div class="app-tile" onclick="openDrawer('analytics-drawer');toggleAppsMenu()"><i class="fa fa-chart-pie"></i><span>Analytics</span></div>
+
+  <div class="grid-section-title">MEDIA & SYSTEM OPS</div>
+  <div class="app-tile" onclick="openDrawer('media-drawer');toggleAppsMenu()"><i class="fa fa-play"></i><span>Media Core</span></div>
+  <div class="app-tile" onclick="toggleChat();toggleAppsMenu()"><i class="fa fa-terminal"></i><span>Terminal</span></div>
+  <div class="app-tile" onclick="reset3DCamera();toggleAppsMenu()"><i class="fa fa-compass"></i><span>Reset View</span></div>
+</div>
+
+<!-- 10. TACTICAL DRAWER: PANASONIC AC -->
+<div class="feature-drawer" id="ac-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-snowflake"></i> Panasonic MirAIe AC</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('ac-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('ac-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill active"><i class="fa fa-snowflake"></i> MirAIe AC</button>
+    <button class="subnav-pill" onclick="openDrawer('reminders-drawer')"><i class="fa fa-bell"></i> Reminders</button>
+    <button class="subnav-pill" onclick="openDrawer('analytics-drawer')"><i class="fa fa-chart-pie"></i> Analytics</button>
+  </div>
+  <div class="ac-dial-box">
+    <div class="ac-dial">
+      <div class="ac-dial-num" id="drawer-ac-temp">24</div>
+      <div class="ac-dial-unit">CELSIUS</div>
+      <span id="ac-temp" style="display:none">24</span>
+      <span id="ac-pwr-lbl" style="display:none">Cooling</span>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:12px">
+    <button class="dock-action-btn" style="width:44px;height:44px" onclick="adjustTemp(-1)"><i class="fa fa-minus"></i></button>
+    <button class="dock-action-btn" style="width:110px;height:44px;border-color:var(--amber-bright);color:#fff" onclick="toggleAC()"><i class="fa fa-power-off"></i> Power</button>
+    <button class="dock-action-btn" style="width:44px;height:44px" onclick="adjustTemp(1)"><i class="fa fa-plus"></i></button>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:14px">
+    <button class="dock-chip" style="flex:1;text-align:center;padding:8px 0" onclick="quick('movie night')">🎬 Movie (26°)</button>
+    <button class="dock-chip" style="flex:1;text-align:center;padding:8px 0" onclick="quick('focus mode')">🎯 Focus (22°)</button>
+    <button class="dock-chip" style="flex:1;text-align:center;padding:8px 0" onclick="quick('sleep mode')">🌙 Sleep (26°)</button>
+  </div>
+</div>
+
+<!-- 11. TACTICAL DRAWER: YOUTUBE MEDIA -->
+<div class="feature-drawer drawer-wide" id="media-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-play"></i> YouTube & Media Controller</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('media-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('media-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill active"><i class="fa fa-play"></i> Media Core</button>
+    <button class="subnav-pill" onclick="toggleChat()"><i class="fa fa-terminal"></i> Terminal</button>
+    <button class="subnav-pill" onclick="solveScreenProblemUI()"><i class="fa fa-laptop"></i> Solve Screen</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Media Controls</div>
+      <div class="page-sub">Control playback on your laptop or PC.</div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="card-title"><i class="fa fa-music"></i>Playback</div>
+          <div class="media-target-row">
+            <button id="mt-laptop" class="mt-btn active" onclick="setMT('laptop')">Laptop</button>
+            <button id="mt-pc" class="mt-btn" onclick="setMT('pc')">PC</button>
+          </div>
+          <div class="play-controls">
+            <button class="ctrl-btn" onclick="mCmd('previous song')"><i class="fa fa-backward-step"></i></button>
+            <button class="play-btn" onclick="mCmd('play pause')"><i class="fa fa-play"></i></button>
+            <button class="ctrl-btn" onclick="mCmd('next song')"><i class="fa fa-forward-step"></i></button>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="mCmd('mute')"><i class="fa fa-volume-xmark"></i></button>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('volume down')">Vol −</button>
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('volume up')">Vol +</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa fa-globe"></i>Streaming</div>
+          <div class="stream-grid">
+            <button class="stream-btn" onclick="sendCmd('open youtube on laptop')">▶ YouTube</button>
+            <button class="stream-btn" onclick="sendCmd('open netflix on laptop')">🎬 Netflix</button>
+            <button class="stream-btn" onclick="sendCmd('open prime on laptop')">📦 Prime Video</button>
+            <button class="stream-btn" onclick="sendCmd('open hotstar on laptop')">⭐ Hotstar</button>
+            <button class="stream-btn" onclick="sendCmd('open youtube on my pc')">▶ YouTube (PC)</button>
+            <button class="stream-btn" onclick="sendCmd('open spotify on laptop')">🎵 Spotify</button>
+          </div>
+          <div class="card-title" style="margin-top:18px"><i class="fa fa-volume-high"></i>Announce via Speakers</div>
+          <div class="announce-row">
+            <input id="ann-txt" class="input input-sm" type="text" placeholder="Text to speak on laptop speakers..." onkeypress="if(event.key==='Enter')announceText()">
+            <button class="btn btn-primary btn-sm" onclick="announceText()"><i class="fa fa-bullhorn"></i></button>
+          </div>
+        </div>
+
+        <!-- YouTube Media & Lecture Search Card -->
+        <div class="card span2" style="margin-top:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="card-title" style="margin-bottom:0"><i class="fa-brands fa-youtube" style="color:#ef4444"></i>YouTube Media & Study Hub</div>
+            <span class="badge" id="yt-status-badge" style="display:none;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)">Inactive</span>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Finds top lecture or video. Plays directly on Laptop/PC browser with auto-focus, or embed and watch right on this iPad/device.</p>
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input id="yt-query-in" class="input" type="text" style="flex:1;min-width:200px" placeholder="Search & play (e.g. lofi study beats, physics wallah live, HC Verma)..." onkeypress="if(event.key==='Enter')playYoutubeUI('laptop')">
+            <button class="btn btn-primary btn-sm" onclick="playYoutubeUI('laptop')"><i class="fa fa-laptop"></i> Play on Laptop</button>
+            <button class="btn btn-sm" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:600;cursor:pointer" onclick="playYoutubeUI('device')"><i class="fa fa-tablet-screen-button"></i> Play on This Device</button>
+            <button class="btn btn-ghost btn-sm" onclick="playYoutubeUI('pc')"><i class="fa fa-desktop"></i> PC</button>
+          </div>
+          <div class="chips">
+            <span class="chip" onclick="quickPlayYT('lofi hip hop radio beats to relax study', 'laptop')">🎧 Lofi Study Beats</span>
+            <span class="chip" onclick="quickPlayYT('physics wallah class 10 live lecture', 'laptop')">⚛️ Physics Wallah Live</span>
+            <span class="chip" onclick="quickPlayYT('deep focus ambient study music 432hz', 'laptop')">🌊 432Hz Deep Focus</span>
+            <span class="chip" onclick="quickPlayYT('organic chemistry reaction mechanisms class 10', 'laptop')">🧪 Organic Chemistry</span>
+            <span class="chip" onclick="quickPlayYT('hans zimmer interstellar soundtrack', 'laptop')">🚀 Interstellar Music</span>
+          </div>
+
+          <!-- Voice & Command Quick Guide -->
+          <div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.12);border-radius:8px;font-size:11px;color:var(--text2)">
+            <div style="color:var(--accent);font-weight:600;display:flex;align-items:center;gap:6px"><i class="fa fa-microphone"></i> What you can say or type:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('play lofi beats on laptop')">🗣️ "play lofi beats"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('play physics wallah live on laptop')">🗣️ "play physics wallah live"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('pause')">🗣️ "pause" / "resume"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('next song')">🗣️ "next song" / "skip"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('volume up')">🗣️ "volume up" / "volume down"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('mute')">🗣️ "mute" / "unmute"</span>
+              <span class="chip" style="font-size:10px;padding:3px 8px;cursor:pointer" onclick="sendCmd('fullscreen')">🗣️ "fullscreen"</span>
+            </div>
+          </div>
+
+          <!-- Interactive Embedded Player Container -->
+          <div id="yt-player-box" style="display:none;margin-top:14px;background:rgba(15,23,42,.6);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="yt-now-playing" style="font-size:12px;font-weight:600;color:var(--text1)">▶️ Video Player</span>
+                <span id="yt-target-pill" style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(14,165,233,.2);color:#38bdf8">Interactive</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <a id="yt-open-link" href="#" target="_blank" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px"><i class="fa fa-arrow-up-right-from-square"></i> Full Tab</a>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px" onclick="hideYoutubePlayer()"><i class="fa fa-xmark"></i> Hide</button>
+              </div>
+            </div>
+            <div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;background:#000">
+              <iframe id="yt-iframe" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+            <!-- Quick Media Controls beneath player -->
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('previous song')" title="Previous Track"><i class="fa fa-backward-step"></i></button>
+              <button class="btn btn-primary btn-sm" onclick="mCmd('play pause')" title="Play / Pause"><i class="fa fa-play"></i> / <i class="fa fa-pause"></i></button>
+              <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-weight:600;cursor:pointer" onclick="sendCmd('stop music')" title="Stop & Silence All Media"><i class="fa fa-stop"></i> Stop</button>
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('next song')" title="Next Track"><i class="fa fa-forward-step"></i></button>
+              <span style="color:var(--border);margin:0 4px">|</span>
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('volume down')" title="Volume Down"><i class="fa fa-volume-low"></i> −</button>
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('volume up')" title="Volume Up"><i class="fa fa-volume-high"></i> +</button>
+              <button class="btn btn-ghost btn-sm" onclick="mCmd('mute')" title="Mute Toggle"><i class="fa fa-volume-xmark"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- 12. TACTICAL DRAWER: GEMINI 3.6 VISION SOLVER -->
+<div class="feature-drawer" id="solver-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-wand-magic-sparkles"></i> Gemini AI Problem Solver</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('solver-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('solver-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('study-drawer')"><i class="fa fa-graduation-cap"></i> Study Hub</button>
+    <button class="subnav-pill" onclick="openDrawer('wiki-drawer')"><i class="fa fa-book-open"></i> Wikipedia</button>
+    <button class="subnav-pill active"><i class="fa fa-wand-magic-sparkles"></i> AI Solver</button>
+    <button class="subnav-pill" onclick="openDrawer('notes-drawer')"><i class="fa fa-note-sticky"></i> Sticky Notes</button>
+  </div>
+  <div style="font-family:var(--mono);font-size:11.5px;color:var(--text-gold);line-height:1.6;background:rgba(0,0,0,0.65);padding:14px;border-radius:8px;border:1px solid var(--amber-border);max-height:220px;overflow-y:auto" id="solver-display-txt">
+    "Awaiting problem input. Tap 'Solve Screen' to capture and analyze the active laptop desktop, or upload book photos."
+  </div>
+  <div style="display:flex;gap:10px;margin-top:12px">
+    <button class="dock-action-btn" style="flex:1;height:40px" onclick="triggerScreenSolve()"><i class="fa fa-laptop"></i> Solve Screen</button>
+    <button class="dock-action-btn" style="flex:1;height:40px" onclick="triggerCameraSolve()"><i class="fa fa-camera"></i> Photo Upload</button>
+  </div>
+  <input type="file" id="book-photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+</div>
+
+<!-- 13. TACTICAL DRAWER: HARDWARE MATRIX -->
+<div class="feature-drawer drawer-wide" id="pc-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-server"></i> Hardware & Workstations</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('pc-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('pc-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill active"><i class="fa fa-server"></i> Hardware PC</button>
+    <button class="subnav-pill" onclick="openDrawer('diag-drawer')"><i class="fa fa-microchip"></i> Diagnostics</button>
+    <button class="subnav-pill" onclick="openDrawer('files-drawer')"><i class="fa fa-folder-open"></i> Files</button>
+    <button class="subnav-pill" onclick="openDrawer('clipboard-drawer')"><i class="fa fa-clipboard"></i> Clipboard</button>
+  </div>
+  <div class="drawer-scroll-body">
+    <div class="grid g2" style="margin-bottom:14px">
+      <!-- Laptop Card -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between">
+          <span><i class="fa fa-laptop"></i>WINDOWS LAPTOP</span>
+          <span class="net-status on">Online</span>
+        </div>
+        <div class="stat-row"><span>CPU Load</span><span id="l-cpu">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="l-cpu-b" style="width:0%"></div></div>
+        <div class="stat-row" style="margin-top:8px"><span>RAM Usage</span><span id="l-ram">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="l-ram-b" style="width:0%"></div></div>
+        <div class="stat-row" style="margin-top:8px"><span>Disk</span><span id="l-disk">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="l-disk-b" style="width:0%"></div></div>
+        <div style="font-size:10px;color:var(--amber-dim);margin-top:10px;font-family:var(--mono)">Uptime: <span id="l-up">--</span></div>
+        <div style="margin-top:12px">
+          <button class="btn btn-primary btn-sm btn-full" onclick="viewScreenshot('laptop')"><i class="fa fa-display"></i> View Screen</button>
+        </div>
+      </div>
+
+      <!-- Zorin Linux PC Card -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between">
+          <span><i class="fa fa-desktop"></i>ZORIN LINUX PC</span>
+          <span id="lbl-pc" class="net-status on">Online</span>
+        </div>
+        <div class="stat-row"><span>CPU Load</span><span id="p-cpu">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="p-cpu-b" style="width:0%"></div></div>
+        <div class="stat-row" style="margin-top:8px"><span>RAM Usage</span><span id="p-ram">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="p-ram-b" style="width:0%"></div></div>
+        <div class="stat-row" style="margin-top:8px"><span>Disk</span><span id="p-disk">--%</span></div>
+        <div class="stat-bar"><div class="stat-fill" id="p-disk-b" style="width:0%"></div></div>
+        <div style="font-size:10px;color:var(--amber-dim);margin-top:10px;font-family:var(--mono)">Uptime: <span id="p-up">--</span></div>
+        <div style="margin-top:12px">
+          <button class="btn btn-primary btn-sm btn-full" onclick="viewScreenshot('pc')"><i class="fa fa-display"></i> View Screen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remote PC Commands -->
+    <div class="card">
+      <div class="card-title"><i class="fa fa-terminal"></i>REMOTE PC COMMANDS (SSH)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="sendCmd('lock zorin pc')"><i class="fa fa-lock"></i> Lock PC</button>
+        <button class="btn btn-sm" onclick="sendCmd('sleep zorin pc')"><i class="fa fa-moon"></i> Sleep PC</button>
+        <button class="btn btn-sm" onclick="sendCmd('wake zorin pc')"><i class="fa fa-sun"></i> Wake-on-LAN</button>
+        <button class="btn btn-sm" onclick="sendCmd('shutdown zorin pc')"><i class="fa fa-power-off"></i> Shutdown</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 14. TACTICAL DRAWER: STUDY HUB -->
+<div class="feature-drawer drawer-wide" id="study-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-graduation-cap"></i> Study Hub & Protocols</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('study-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('study-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill active"><i class="fa fa-graduation-cap"></i> Study Hub</button>
+    <button class="subnav-pill" onclick="openDrawer('wiki-drawer')"><i class="fa fa-book-open"></i> Wikipedia</button>
+    <button class="subnav-pill" onclick="openDrawer('solver-drawer')"><i class="fa fa-wand-magic-sparkles"></i> AI Solver</button>
+    <button class="subnav-pill" onclick="openDrawer('notes-drawer')"><i class="fa fa-note-sticky"></i> Sticky Notes</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Study Hub</div>
+      <div class="page-sub">Start a session — opens all 4 resources + sets AC to 24°C.</div>
+      <div class="grid g2">
+        <div>
+          <div class="session-start" onclick="sendCmd('activate study session on laptop')">
+            <div class="session-title">🚀 Start 2-Hour Session</div>
+            <div class="session-desc">Laptop — PW · MolView · Gemini · ChatGPT · AC 24°C</div>
+          </div>
+          <div class="session-start" style="background:var(--s2);border-color:var(--border2)" onclick="sendCmd('activate study session on pc')">
+            <div class="session-title" style="color:var(--text)">🖥 Start 2-Hour Session (PC)</div>
+            <div class="session-desc">Zorin OS via SSH</div>
+          </div>
+
+          <!-- Focus & Workspace AI Assistants -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-title"><i class="fa fa-brain"></i>Focus & AI Assistants</div>
+            <div class="qa-grid">
+              <button class="qa-btn primary" onclick="solveScreenProblemUI()"><span class="qa-icon">⚡</span>Solve Screen</button>
+              <button class="qa-btn study" onclick="triggerPhotoSolve()"><span class="qa-icon">📷</span>Snap Question</button>
+              <button class="qa-btn" onclick="snapStudyWindowsUI()"><span class="qa-icon">🪟</span>Snap Windows</button>
+              <button class="qa-btn" onclick="checkFocusDistractionUI()"><span class="qa-icon">🛡️</span>Focus Guard</button>
+              <button class="qa-btn" onclick="openReflection()"><span class="qa-icon">📝</span>Log Reflection</button>
+              <button class="qa-btn" onclick="showSec('files')"><span class="qa-icon">📂</span>Study Files</button>
+            </div>
+          </div>
+
+          <!-- Daily Study Targets & Goal Streak Tracker -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span><i class="fa fa-bullseye"></i>Daily Targets & Streak</span>
+              <span id="goal-streak-badge" style="background:linear-gradient(135deg,#f97316,#ef4444);color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700">🔥 1 Day Streak</span>
+            </div>
+            <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Jarvis announces your pending targets in the Morning Briefing.</p>
+            <div style="display:flex;gap:6px;margin-bottom:12px">
+              <select id="goal-sub-in" class="input input-sm" style="width:110px">
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Mathematics">Math</option>
+                <option value="Coding">Coding</option>
+                <option value="General Study">Study</option>
+              </select>
+              <input id="goal-txt-in" class="input input-sm" type="text" placeholder="Add study target (e.g. 25 MCQs)..." onkeypress="if(event.key==='Enter')addGoalUI()">
+              <button class="btn btn-primary btn-sm" onclick="addGoalUI()"><i class="fa fa-plus"></i></button>
+            </div>
+            <div id="goals-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto">
+              <div style="color:var(--text3);font-size:12px;text-align:center;padding:12px">Loading targets...</div>
+            </div>
+          </div>
+
+          <!-- Pomodoro -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-title"><i class="fa fa-timer"></i>Pomodoro Timer</div>
+            <div class="pomo-wrap">
+              <svg width="140" height="140" class="pring"><circle class="ptrack" cx="70" cy="70" r="54"/><circle id="pomo-fill" class="pfill" cx="70" cy="70" r="54"/></svg>
+              <div class="pomo-center">
+                <div class="pomo-time" id="pomo-time">25:00</div>
+                <div class="pomo-label" id="pomo-label">Focus</div>
+              </div>
+              <div class="pomo-btns">
+                <button id="pomo-btn" class="btn btn-primary" onclick="pomoToggle()"><i class="fa fa-play"></i> Start</button>
+                <button class="btn btn-ghost" onclick="pomoReset()"><i class="fa fa-rotate-right"></i></button>
+              </div>
+              <div class="pomo-modes">
+                <span class="chip" onclick="setPomoMode(25,5)">25/5</span>
+                <span class="chip" onclick="setPomoMode(50,10)">50/10</span>
+                <span class="chip" onclick="setPomoMode(90,15)">90/15</span>
+              </div>
+              <div style="margin-top:10px;font-size:12px;color:var(--text3)">Sessions: <span id="pomo-sessions" style="color:var(--accent);font-weight:700">0</span></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <!-- Active Recall Flashcards -->
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title"><i class="fa fa-layer-group"></i>Active Recall Flashcards</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <input id="fc-topic-in" class="input input-sm" type="text" placeholder="Topic: e.g. Gravitation, Periodic Table..." onkeypress="if(event.key==='Enter')generateFlashcardsUI()">
+              <button class="btn btn-primary btn-sm" onclick="generateFlashcardsUI()"><i class="fa fa-wand-magic-sparkles"></i> Generate</button>
+            </div>
+            <div class="chips" style="margin-bottom:12px">
+              <span class="chip" onclick="quickFlashcards('Newton Laws of Motion')">Newton's Laws</span>
+              <span class="chip" onclick="quickFlashcards('Periodic Table Trends')">Periodic Table</span>
+              <span class="chip" onclick="quickFlashcards('Photosynthesis Light Reaction')">Photosynthesis</span>
+              <span class="chip" onclick="quickFlashcards('Python OOP Concepts')">Python OOP</span>
+            </div>
+
+            <!-- Flashcard Viewer -->
+            <div class="fc-stage" onclick="flipCard()">
+              <div class="fc-card" id="fc-card-el">
+                <div class="fc-front">
+                  <div class="fc-badge" id="fc-badge-front">Question (Click to flip)</div>
+                  <div class="fc-q" id="fc-q-txt">Enter a topic above and click Generate to start active recall testing!</div>
+                </div>
+                <div class="fc-back">
+                  <div class="fc-badge" style="color:var(--accent)">Answer</div>
+                  <div class="fc-a" id="fc-a-txt">Answers will appear here with full explanation.</div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+              <button class="btn btn-ghost btn-sm" onclick="prevCard()"><i class="fa fa-chevron-left"></i> Prev</button>
+              <span id="fc-counter" style="font-size:12px;color:var(--text3);font-weight:600">Card 0 of 0</span>
+              <button class="btn btn-ghost btn-sm" onclick="nextCard()">Next <i class="fa fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title"><i class="fa fa-globe"></i>Study Resources</div>
+            <div class="res-item" onclick="sendCmd('open pw on laptop')"><div class="res-emoji">📖</div><div class="res-info"><div class="res-name">PW Live</div><div class="res-desc">Physics Wallah — Class 9/10 lectures</div></div><i class="fa fa-arrow-right" style="color:var(--text3)"></i></div>
+            <div class="res-item" onclick="sendCmd('open chemistry 3d on laptop')"><div class="res-emoji">🧪</div><div class="res-info"><div class="res-name">MolView 3D</div><div class="res-desc">Molecular structure viewer</div></div><i class="fa fa-arrow-right" style="color:var(--text3)"></i></div>
+            <div class="res-item" onclick="sendCmd('open gemini on laptop')"><div class="res-emoji">✨</div><div class="res-info"><div class="res-name">Gemini AI</div><div class="res-desc">Google — AI learning assistant</div></div><i class="fa fa-arrow-right" style="color:var(--text3)"></i></div>
+            <div class="res-item" onclick="sendCmd('open chatgpt on laptop')"><div class="res-emoji">🤖</div><div class="res-info"><div class="res-name">ChatGPT</div><div class="res-desc">OpenAI — problem solving</div></div><i class="fa fa-arrow-right" style="color:var(--text3)"></i></div>
+          </div>
+          <!-- Study Reminder -->
+          <div class="card">
+            <div class="card-title"><i class="fa fa-bell"></i>Set Study Reminder</div>
+            <input id="sr-txt" class="input" type="text" placeholder="e.g. Take a break, drink water..." style="margin-bottom:10px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="sr-min" class="input" type="number" value="30" min="1" style="width:80px">
+              <span style="font-size:12px;color:var(--text3)">min</span>
+              <button class="btn" style="background:var(--yellow);color:#000;font-weight:700;margin-left:auto" onclick="setStudyR()">Set</button>
+            </div>
+            <div class="chips" style="margin-top:10px">
+              <span class="chip" onclick="quickReminder(25,'Break time!')">25m break</span>
+              <span class="chip" onclick="quickReminder(60,'Check-in!')">1hr check</span>
+              <span class="chip" onclick="quickReminder(120,'Session done!')">2hr done</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- 15. TACTICAL DRAWER: WIKIPEDIA -->
+<div class="feature-drawer drawer-wide" id="wiki-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-book-open"></i> Wikipedia Knowledge Engine</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('wiki-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('wiki-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('study-drawer')"><i class="fa fa-graduation-cap"></i> Study Hub</button>
+    <button class="subnav-pill active"><i class="fa fa-book-open"></i> Wikipedia</button>
+    <button class="subnav-pill" onclick="openDrawer('solver-drawer')"><i class="fa fa-wand-magic-sparkles"></i> AI Solver</button>
+    <button class="subnav-pill" onclick="openDrawer('notes-drawer')"><i class="fa fa-note-sticky"></i> Sticky Notes</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Wikipedia</div>
+      <div class="page-sub">Search any person, event, concept, or topic — full summaries with sources.</div>
+
+      <!-- Search bar -->
+      <div class="cmd-box" style="padding:20px 24px">
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <input id="wiki-q" class="cmd-input" type="text" placeholder="Search Wikipedia... e.g. Ronaldo Nazário, Albert Einstein, Black hole, World War 2..." onkeypress="if(event.key==='Enter')wikiSearch()" style="font-size:15px;padding:14px 18px">
+          <button class="send-btn" onclick="wikiSearch()" style="padding:0 24px;font-size:14px"><i class="fa fa-search"></i> Search</button>
+        </div>
+        <div class="chips">
+          <span class="chip" onclick="wikiQ('Ronaldo Nazário')">Ronaldo Nazário</span>
+          <span class="chip" onclick="wikiQ('Lionel Messi')">Lionel Messi</span>
+          <span class="chip" onclick="wikiQ('Albert Einstein')">Einstein</span>
+          <span class="chip" onclick="wikiQ('Black hole')">Black hole</span>
+          <span class="chip" onclick="wikiQ('Photosynthesis')">Photosynthesis</span>
+          <span class="chip" onclick="wikiQ('Indian Independence')">Indian Independence</span>
+          <span class="chip" onclick="wikiQ('Periodic table')">Periodic table</span>
+          <span class="chip" onclick="wikiQ('Newton laws')">Newton laws</span>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="wiki-loading" class="wiki-loading">
+        <i class="fa fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;display:block;color:var(--accent)"></i>
+        Searching Wikipedia...
+      </div>
+
+      <!-- Result card -->
+      <div id="wiki-result" class="wiki-result">
+        <div class="wiki-page-title"><i class="fa-brands fa-wikipedia-w"></i><span id="wiki-title"></span></div>
+        <div class="wiki-body" id="wiki-body"></div>
+        <div class="wiki-footer">
+          <div class="wiki-cats">🏷 <span id="wiki-cats"></span></div>
+          <a id="wiki-url" href="#" target="_blank" class="btn btn-ghost btn-sm"><i class="fa fa-external-link"></i> Full Article</a>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="wiki-empty" style="text-align:center;padding:60px 20px;color:var(--text3)">
+        <i class="fa-brands fa-wikipedia-w" style="font-size:48px;margin-bottom:16px;display:block;opacity:.2"></i>
+        Search anything above — people, places, science, history, sports...
+      </div>
+    
+  </div>
+</div>
+
+<!-- 16. TACTICAL DRAWER: STICKY NOTES -->
+<div class="feature-drawer drawer-wide" id="notes-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-note-sticky"></i> Sticky Notes & Quick Points</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('notes-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('notes-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('study-drawer')"><i class="fa fa-graduation-cap"></i> Study Hub</button>
+    <button class="subnav-pill" onclick="openDrawer('wiki-drawer')"><i class="fa fa-book-open"></i> Wikipedia</button>
+    <button class="subnav-pill" onclick="openDrawer('solver-drawer')"><i class="fa fa-wand-magic-sparkles"></i> AI Solver</button>
+    <button class="subnav-pill active"><i class="fa fa-note-sticky"></i> Sticky Notes</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Sticky Notes</div>
+      <div class="page-sub">Saved permanently. Also works with voice: "save note: ..."</div>
+      <div class="cmd-box" style="padding:16px 20px;margin-bottom:14px">
+        <div style="display:flex;gap:8px">
+          <input id="note-txt" class="cmd-input" type="text" placeholder="Type a note and press Enter..." onkeypress="if(event.key==='Enter')addNoteUI()">
+          <button class="send-btn" onclick="addNoteUI()"><i class="fa fa-plus"></i></button>
+        </div>
+      </div>
+      <div id="notes-list" class="note-grid"></div>
+    
+  </div>
+</div>
+
+<!-- 17. TACTICAL DRAWER: STUDY ANALYTICS -->
+<div class="feature-drawer drawer-wide" id="analytics-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-chart-pie"></i> System Analytics & Metrics</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('analytics-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('analytics-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('ac-drawer')"><i class="fa fa-snowflake"></i> MirAIe AC</button>
+    <button class="subnav-pill" onclick="openDrawer('reminders-drawer')"><i class="fa fa-bell"></i> Reminders</button>
+    <button class="subnav-pill active"><i class="fa fa-chart-pie"></i> Analytics</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Study Analytics</div>
+      <div class="page-sub">Automatically logged after each 2-hour session.</div>
+      <div class="grid g3" style="margin-bottom:14px">
+        <div class="stat-card"><div class="stat-num" id="an-total" style="color:var(--accent)">0</div><div class="stat-desc">Total Hours</div></div>
+        <div class="stat-card"><div class="stat-num" id="an-sessions" style="color:var(--purple)">0</div><div class="stat-desc">Sessions</div></div>
+        <div class="stat-card"><div class="stat-num" id="an-streak" style="color:var(--green)">0</div><div class="stat-desc">Day Streak 🔥</div></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title"><i class="fa fa-chart-column"></i>Last 7 Days</div>
+        <div id="an-chart" class="chart-wrap"></div>
+        <div id="an-labels" style="display:flex;gap:8px;margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fa fa-list"></i>Recent Sessions</div>
+        <div id="an-list" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- 18. TACTICAL DRAWER: UNIVERSAL CLIPBOARD -->
+<div class="feature-drawer drawer-wide" id="clipboard-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-clipboard"></i> Clipboard Sync & History</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('clipboard-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('clipboard-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('pc-drawer')"><i class="fa fa-server"></i> Hardware PC</button>
+    <button class="subnav-pill" onclick="openDrawer('diag-drawer')"><i class="fa fa-microchip"></i> Diagnostics</button>
+    <button class="subnav-pill" onclick="openDrawer('files-drawer')"><i class="fa fa-folder-open"></i> Files</button>
+    <button class="subnav-pill active"><i class="fa fa-clipboard"></i> Clipboard</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+        <div>
+          <div class="page-title">Universal Clipboard Hub</div>
+          <div class="page-sub" style="margin-bottom:0">Bidirectional live sync between Laptop, iPad, and Zorin PC. Zero setup required.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="fetchClipboardUI()"><i class="fa fa-rotate-right"></i> Refresh</button>
+      </div>
+
+      <div class="grid g2" style="margin-bottom:14px">
+        <!-- Live Incoming from Laptop -->
+        <div class="card">
+          <div class="card-title"><i class="fa fa-laptop"></i>Laptop Clipboard (Live Incoming)</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Current content on your Windows Laptop. Tap 'Copy to iPad' to copy directly to this device.</p>
+          <div id="full-clip-box" class="clip-box" style="min-height:140px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;user-select:all;margin-bottom:12px;font-family:monospace;font-size:12px" title="Tap to select">Loading laptop clipboard...</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="copyLaptopClipboardToDevice()"><i class="fa fa-copy"></i> Copy to iPad</button>
+            <button class="btn btn-ghost btn-sm" onclick="selectClipBox('full-clip-box')"><i class="fa fa-i-cursor"></i> Select All</button>
+            <button class="btn btn-ghost btn-sm" onclick="fetchClipboardUI()"><i class="fa fa-rotate-right"></i> Refresh</button>
+            <button class="btn btn-danger btn-sm" onclick="clearLaptopClipboard()"><i class="fa fa-trash"></i> Clear</button>
+          </div>
+        </div>
+
+        <!-- Outgoing to Laptop -->
+        <div class="card">
+          <div class="card-title"><i class="fa fa-tablet-screen-button"></i>Send to Laptop (From iPad)</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Paste questions, formulas, notes, or code blocks from your iPad to set your Laptop clipboard instantly.</p>
+          <textarea id="full-clip-in" rows="6" class="input" style="font-family:monospace;font-size:12px;margin-bottom:12px" placeholder="Paste or type text, code snippets, study notes, or URLs here..."></textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="sendFullClipboardToLaptop()"><i class="fa fa-arrow-up"></i> Set Laptop Clipboard</button>
+            <button class="btn btn-ghost btn-sm" onclick="pasteDeviceToInput('full-clip-in')"><i class="fa fa-paste"></i> Paste from iPad</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('full-clip-in').value=''"><i class="fa fa-eraser"></i> Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Text Presets & Shortcuts -->
+      <div class="card">
+        <div class="card-title"><i class="fa fa-bolt"></i>Quick Clipboard Shortcuts</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Tap any quick snippet to copy to both Laptop & iPad clipboard instantly.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="chip" onclick="quickSendClip('http://192.168.1.6:5000')">🌐 Jarvis Web UI (192.168.1.6:5000)</button>
+          <button class="chip" onclick="quickSendClip('https://pw.live')">📚 PW Live</button>
+          <button class="chip" onclick="quickSendClip('https://molview.org')">🧪 MolView 3D</button>
+          <button class="chip" onclick="quickSendClip('https://gemini.google.com')">✨ Gemini AI</button>
+          <button class="chip" onclick="quickSendClip('192.168.1.10')">🖥️ Zorin PC IP</button>
+        </div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- 19. TACTICAL DRAWER: SYSTEM DIAGNOSTICS -->
+<div class="feature-drawer drawer-wide" id="diag-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-microchip"></i> System Diagnostics & Telemetry</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('diag-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('diag-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('pc-drawer')"><i class="fa fa-server"></i> Hardware PC</button>
+    <button class="subnav-pill active"><i class="fa fa-microchip"></i> Diagnostics</button>
+    <button class="subnav-pill" onclick="openDrawer('files-drawer')"><i class="fa fa-folder-open"></i> Files</button>
+    <button class="subnav-pill" onclick="openDrawer('clipboard-drawer')"><i class="fa fa-clipboard"></i> Clipboard</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+        <div>
+          <div class="page-title">System Diagnostics & Network</div>
+          <div class="page-sub" style="margin-bottom:0">Zero-cost infrastructure monitoring, local device discovery & autonomous OS guards.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="runDiagnosticsUI()"><i class="fa fa-rotate-right"></i> Run Diagnostics Audit</button>
+      </div>
+
+      <!-- Live Diagnostics Cards -->
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="diag-lbl">Internet Status</div>
+          <div class="diag-val" id="diag-net-st">Checking...</div>
+          <div class="diag-sub" id="diag-net-lat">Latency: --</div>
+        </div>
+        <div class="diag-card">
+          <div class="diag-lbl">Laptop Hardware</div>
+          <div class="diag-val" id="diag-lap-st">Checking...</div>
+          <div class="diag-sub" id="diag-lap-sub">CPU / RAM / Disk</div>
+        </div>
+        <div class="diag-card">
+          <div class="diag-lbl">Zorin OS PC (SSH)</div>
+          <div class="diag-val" id="diag-pc-st">Checking...</div>
+          <div class="diag-sub" id="diag-pc-ip">192.168.1.10</div>
+        </div>
+        <div class="diag-card">
+          <div class="diag-lbl">MirAIe AC Link</div>
+          <div class="diag-val" id="diag-ac-st">Checking...</div>
+          <div class="diag-sub" id="diag-ac-sub">Local IoT Broker</div>
+        </div>
+        <div class="diag-card">
+          <div class="diag-lbl">AI Reasoning Engine</div>
+          <div class="diag-val" id="diag-ai-st">Gemini 3.6 Flash</div>
+          <div class="diag-sub" id="diag-ai-lat">Speed: --</div>
+        </div>
+      </div>
+
+      <div class="grid g2">
+        <!-- Wi-Fi Device Discovery -->
+        <div class="card">
+          <div class="card-title">
+            <i class="fa fa-wifi"></i>Local Wi-Fi Devices
+            <button onclick="fetchNetworkDevicesUI()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">↻ Scan</button>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Detected on 192.168.1.0/24 subnet via ARP table.</p>
+          <div id="device-list" style="max-height:280px;overflow-y:auto">
+            <div style="color:var(--text3);padding:14px;font-size:12px">Scanning subnet...</div>
+          </div>
+        </div>
+
+        <!-- Autonomous Rules Status -->
+        <div class="card">
+          <div class="card-title"><i class="fa fa-robot"></i>Autonomous Software Daemons</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="net-item">
+              <div class="net-left">
+                <div class="dot on"></div>
+                <div>
+                  <div style="font-weight:600;font-size:13px">Battery Voice Guard</div>
+                  <div style="font-size:11px;color:var(--text3)">Audible alert at &le;15% (unplugged) & &ge;80% (charging)</div>
+                </div>
+              </div>
+              <span class="net-status on">Active</span>
+            </div>
+            <div class="net-item">
+              <div class="net-left">
+                <div class="dot on"></div>
+                <div>
+                  <div style="font-weight:600;font-size:13px">Inactivity Sleep Trigger</div>
+                  <div style="font-size:11px;color:var(--text3)">Auto-sleeps PC/AC after 1:00 AM if idle > 15m</div>
+                </div>
+              </div>
+              <span class="net-status on">Active</span>
+            </div>
+            <div class="net-item">
+              <div class="net-left">
+                <div class="dot on"></div>
+                <div>
+                  <div style="font-weight:600;font-size:13px">Weather & AQI Heat Protection</div>
+                  <div style="font-size:11px;color:var(--text3)">Auto-cools AC to 22°C when outdoor temp &ge; 33°C</div>
+                </div>
+              </div>
+              <span class="net-status on">Active</span>
+            </div>
+            <div class="net-item">
+              <div class="net-left">
+                <div class="dot on"></div>
+                <div>
+                  <div style="font-weight:600;font-size:13px">High-CPU Watchdog</div>
+                  <div style="font-size:11px;color:var(--text3)">Identifies runaway background processes > 90% CPU</div>
+                </div>
+              </div>
+              <span class="net-status on">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zorin Linux PC Interactive Remote Terminal -->
+        <div class="card" style="grid-column:1/-1;margin-top:10px">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i class="fa-solid fa-terminal" style="color:var(--green)"></i>Zorin Linux PC Terminal (jay@192.168.1.10)</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="clearPCTerminal()"><i class="fa fa-eraser"></i> Clear</button>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Direct encrypted SSH command console. Execute bash diagnostics, manage services, and monitor hardware in real time.</p>
+          <div class="chips" style="margin-bottom:10px">
+            <span class="chip" onclick="quickPCTerm('uptime')">⏱️ Uptime</span>
+            <span class="chip" onclick="quickPCTerm('free -h')">💾 Free RAM</span>
+            <span class="chip" onclick="quickPCTerm('df -h /')">💿 Disk Space</span>
+            <span class="chip" onclick="quickPCTerm('ps aux --sort=-%cpu | head -6')">🔥 Top CPU</span>
+            <span class="chip" onclick="quickPCTerm('ip -brief addr')">🌐 IP Addresses</span>
+            <span class="chip" onclick="quickPCTerm('whoami && uname -a')">🐧 Kernel & User</span>
+          </div>
+          <div id="pc-term-box" style="background:#050505;border:1px solid var(--border);border-radius:var(--r);padding:14px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#22c55e;min-height:160px;max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:10px">jay@zorin:~$ echo "Jarvis Remote Terminal Ready"
+Jarvis Remote Terminal Ready</div>
+          <div style="display:flex;gap:8px">
+            <input id="pc-term-in" class="input" style="font-family:monospace;font-size:13px" type="text" placeholder="Enter bash command (e.g. ls -la, sensors, ping -c 3 8.8.8.8)..." onkeypress="if(event.key==='Enter')runPCTerminalUI()">
+            <button class="btn btn-primary" onclick="runPCTerminalUI()"><i class="fa fa-play"></i> Run</button>
+          </div>
+        </div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- 20. TACTICAL DRAWER: REMINDERS -->
+<div class="feature-drawer" id="reminders-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-bell"></i> Timers & Scheduled Reminders</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('reminders-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('reminders-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('ac-drawer')"><i class="fa fa-snowflake"></i> MirAIe AC</button>
+    <button class="subnav-pill active"><i class="fa fa-bell"></i> Reminders</button>
+    <button class="subnav-pill" onclick="openDrawer('analytics-drawer')"><i class="fa fa-chart-pie"></i> Analytics</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div class="page-title">Reminders</div>
+      <div class="page-sub">Fires via laptop speakers + Telegram (if configured in .env).</div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title"><i class="fa fa-bell"></i>Add Reminder</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <input id="rr-txt" class="input" type="text" placeholder="Reminder message..." style="flex:1;min-width:200px">
+          <input id="rr-min" class="input" type="number" value="30" min="1" style="width:80px">
+          <span style="font-size:12px;color:var(--text3);align-self:center">min</span>
+          <button class="btn" style="background:var(--yellow);color:#000;font-weight:700" onclick="setReminderP()">Set</button>
+        </div>
+      </div>
+      <div id="rem-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    
+  </div>
+</div>
+
+<!-- 21. TACTICAL DRAWER: FILES EXPLORER -->
+<div class="feature-drawer drawer-wide" id="files-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title"><i class="fa fa-folder-open"></i> File Explorer & Workspace</div>
+    <div class="drawer-head-actions">
+      <button class="drawer-head-btn drawer-btn-maximize" title="Toggle Maximize" onclick="toggleDrawerMaximize('files-drawer')"><i class="fa fa-up-right-and-down-left-from-center"></i></button>
+      <button class="drawer-close" onclick="closeDrawer('files-drawer')">&times;</button>
+    </div>
+  </div>
+  <div class="subsystem-subnav">
+    <button class="subnav-pill" onclick="openDrawer('pc-drawer')"><i class="fa fa-server"></i> Hardware PC</button>
+    <button class="subnav-pill" onclick="openDrawer('diag-drawer')"><i class="fa fa-microchip"></i> Diagnostics</button>
+    <button class="subnav-pill active"><i class="fa fa-folder-open"></i> Files</button>
+    <button class="subnav-pill" onclick="openDrawer('clipboard-drawer')"><i class="fa fa-clipboard"></i> Clipboard</button>
+  </div>
+  <div class="drawer-scroll-body">
+    
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+        <div>
+          <div class="page-title">Local Study Material & Files</div>
+          <div class="page-sub" style="margin-bottom:0">Deep indexing across Desktop, Downloads, and Documents. 1-click open on your laptop.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="searchFilesUI()"><i class="fa fa-rotate-right"></i> Rescan</button>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="file-search-in" class="input" type="text" placeholder="Search files, PDFs, question papers, code (e.g. notes, pdf, report)..." oninput="debounceFileSearch()" onkeypress="if(event.key==='Enter')searchFilesUI()">
+          <button class="btn btn-primary" onclick="searchFilesUI()"><i class="fa fa-magnifying-glass"></i> Search</button>
+        </div>
+        <div class="chips">
+          <span class="chip" onclick="filterFilesQuick('pdf')">📕 PDFs</span>
+          <span class="chip" onclick="filterFilesQuick('notes')">📝 Notes</span>
+          <span class="chip" onclick="filterFilesQuick('doc')">📘 Word Docs</span>
+          <span class="chip" onclick="filterFilesQuick('ppt')">📙 Presentations</span>
+          <span class="chip" onclick="filterFilesQuick('py')">🐍 Python</span>
+          <span class="chip" onclick="filterFilesQuick('jarvis')">🤖 Jarvis Files</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="file-results-header"><i class="fa fa-folder-tree"></i>Indexed Files</div>
+        <div id="file-results-list" style="display:flex;flex-direction:column;gap:6px">
+          <div style="color:var(--text3);padding:24px;text-align:center">Loading recent study files...</div>
+        </div>
+      </div>
+    
+  </div>
+</div>
+
+<!-- MODALS -->
+<!-- SOLVER MODAL -->
+<div id="solver-modal" class="j-modal" onclick="if(event.target===this)closeSolver()">
+  <div class="j-modal-box" style="max-width:560px">
+    <div class="j-modal-head">
+      <div class="j-modal-title"><i class="fa fa-wand-magic-sparkles" style="color:var(--accent)"></i> Problem Solver (Gemini AI)</div>
+      <button class="ss-close" onclick="closeSolver()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div id="solver-photo-wrap" style="display:none;margin-bottom:12px;text-align:center">
+      <img id="solver-photo-img" style="max-height:160px;max-width:100%;border-radius:var(--r);border:1px solid var(--border2);object-fit:contain">
+    </div>
+    <div id="solver-spin" style="text-align:center;padding:32px;color:var(--accent);display:none">
+      <i class="fa fa-spinner fa-spin" style="font-size:32px;margin-bottom:12px;display:block"></i>
+      <span id="solver-spin-txt">Analyzing problem & calculating step-by-step solution...</span>
+    </div>
+    <div id="solver-content" style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--text);max-height:60vh;overflow-y:auto;background:var(--s2);padding:14px;border-radius:var(--r);border:1px solid var(--border)"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="copySolverResult()"><i class="fa fa-copy"></i> Copy Solution</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-purple btn-sm" onclick="triggerPhotoSolve()"><i class="fa fa-camera"></i> Snap Photo</button>
+        <button class="btn btn-primary btn-sm" onclick="solveScreenProblemUI()"><i class="fa fa-laptop"></i> Solve Screen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REFLECTION MODAL -->
+<div id="reflection-modal" class="j-modal" onclick="if(event.target===this)closeReflection()">
+  <div class="j-modal-box" style="max-width:460px">
+    <div class="j-modal-head">
+      <div class="j-modal-title"><i class="fa fa-graduation-cap" style="color:var(--purple)"></i> Study Reflection</div>
+      <button class="ss-close" onclick="closeReflection()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Log your study session directly into Jarvis Analytics.</p>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700">Subject</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px" id="refl-chips">
+        <span class="chip" onclick="setReflSub(this,'Physics')">Physics</span>
+        <span class="chip" onclick="setReflSub(this,'Chemistry')">Chemistry</span>
+        <span class="chip" onclick="setReflSub(this,'Mathematics')">Mathematics</span>
+        <span class="chip" onclick="setReflSub(this,'Biology')">Biology</span>
+        <span class="chip" onclick="setReflSub(this,'Coding')">Coding</span>
+        <span class="chip" onclick="setReflSub(this,'English')">English</span>
+      </div>
+      <input id="refl-sub-val" type="hidden" value="Physics">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700">Duration (Hours)</label>
+      <input id="refl-hours" class="input input-sm" type="number" step="0.25" value="0.5" min="0.25" style="margin-top:6px">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700">Key Takeaway / Notes</label>
+      <input id="refl-notes" class="input input-sm" type="text" placeholder="e.g. Chapter 4 gravitation formulas mastered..." style="margin-top:6px">
+    </div>
+    <button class="btn btn-purple btn-full" onclick="saveReflectionUI()"><i class="fa fa-check"></i> Save to Analytics</button>
+  </div>
+</div>
+
+<!-- LIVE SCREENSHOT MODAL -->
+<div id="ss-modal" class="j-modal" onclick="if(event.target===this)closeSS()">
+  <div class="ss-inner">
+    <div class="ss-bar">
+      <div class="ss-live">
+        <div class="live-dot"></div>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--red)">LIVE</span>
+        <span id="ss-dlabel" style="font-size:11px;color:var(--text3);margin-left:6px"></span>
+      </div>
+      <button class="ss-close" onclick="closeSS()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="ss-img-wrap">
+      <div id="ss-spin" class="ss-spin"><i class="fa fa-spinner fa-spin" style="font-size:28px;margin-bottom:8px;display:block"></i>Capturing screen...</div>
+      <img id="ss-img" alt="Screen capture">
+    </div>
+    <div class="ss-footer">
+      <span id="ss-ts"></span>
+      <span>Auto-updates every 3s</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- COMPATIBILITY VAULT (HIDDEN) -->
+<div id="compat-vault" style="display:none">
+  <span id="clock"></span>
+  <span id="datedisp"></span>
+  <span id="greeting"></span>
+  <span id="dot-pc"></span>
+  <span id="dot-pc2"></span>
+  <span id="card-ac"></span>
+  <span id="dot-ac"></span>
+  <span id="dot-ac2"></span>
+  <span id="lbl-ac2"></span>
+  <input id="ann-txt" value="">
+  <div id="audio-vis-3d"></div>
+  <div id="dash-clip-box"></div>
+  <input id="dash-clip-in" value="">
+  <div id="dash-news-list"></div>
+  <div id="full-news-list"></div>
+  <div id="hist-list"></div>
+  <div id="jresp"></div>
+  <input id="tcmd" value="">
+  <span id="tline"></span>
+  <span id="toasts"></span>
+  <span id="bat-bar"></span>
+  <span id="bat-pct"></span>
+  <span id="bat-plug"></span>
+  <span id="bat-time"></span>
+  <span id="wx-aqi"></span>
+  <span id="wx-cond"></span>
+  <span id="wx-data"></span>
+  <span id="wx-err"></span>
+  <span id="wx-hum"></span>
+  <span id="wx-icon"></span>
+  <span id="wx-loading"></span>
+  <span id="wx-temp"></span>
+  <span id="wx-wind"></span>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- JAVASCRIPT: 3D CELESTIAL ASTROLABE ENGINE & REAL BACKEND   -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+// ── 1. GLOBAL STATE & HELPERS ────────────────────────────────
+var curTemp = 24;
+var acOn = false;
+var isVisualizerActive = false;
+
+function toast(msg, type){
+  var el = document.getElementById('toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.className = 'show';
+  setTimeout(function(){ el.className = ''; }, 2600);
+}
+
+function escHtml(str){
+  if(!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateClock(){
+  var d = new Date();
+  var hh = String(d.getHours()).padStart(2, '0');
+  var mm = String(d.getMinutes()).padStart(2, '0');
+  var ss = String(d.getSeconds()).padStart(2, '0');
+  var el = document.getElementById('clock-disp');
+  if(el) el.textContent = hh + ':' + mm + ':' + ss;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function addHUDLog(tag, msg){
+  var term = document.getElementById('hud-terminal');
+  if(!term) return;
+  var d = new Date();
+  var ts = [d.getHours(), d.getMinutes(), d.getSeconds()].map(function(n){ return String(n).padStart(2, '0'); }).join(':');
+  var row = document.createElement('div');
+  row.className = 'log-entry';
+  row.innerHTML = '<span class="log-ts">' + ts + '</span><span class="log-tag">' + tag + '</span><span class="log-msg">' + escHtml(msg) + '</span>';
+  term.insertBefore(row, term.firstChild);
+  while(term.children.length > 5){
+    term.removeChild(term.lastChild);
+  }
+}
+
+// ── 2. 3D CELESTIAL ASTROLABE GYROSCOPE ENGINE (HIERARCHICAL BRANCHES & ZOOM) ───────────────
+(function initCelestialEngine(){
+  var canvas = document.getElementById('celestial-viewport');
+  if(!canvas) return;
+  var ctx = canvas.getContext('2d');
+
+  var w, h, cx, cy;
+  function resize(){
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.scale(dpr, dpr);
+    w = window.innerWidth;
+    h = window.innerHeight;
+    cx = w / 2;
+    cy = h / 2;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 1. Generate 3D Star Swarm (380 Particles around Stellar Core)
+  var particles = [];
+  var N = 380;
+  var sphereRad = 175;
+  for(var i = 0; i < N; i++){
+    var u = Math.random();
+    var v = Math.random();
+    var theta = u * 2.0 * Math.PI;
+    var phi = Math.acos(2.0 * v - 1.0);
+    var r = sphereRad * (0.35 + 0.65 * Math.cbrt(Math.random()));
+    particles.push({
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.sin(phi) * Math.sin(theta),
+      z: r * Math.cos(phi),
+      baseSize: 0.8 + Math.random() * 1.6
+    });
+  }
+
+  // 2. 3D Segmented Mechanical Gimbal Coordinate Rings
+  var gimbalRings = [
+    { radius: 180, tiltX: 0.05, tiltY: 0, speed: 0.003, dashCount: 56, tickLen: 6 },
+    { radius: 200, tiltX: 0.65, tiltY: 0.2, speed: -0.0038, dashCount: 48, tickLen: 7 },
+    { radius: 220, tiltX: -0.55, tiltY: 0.42, speed: 0.0025, dashCount: 64, tickLen: 5 },
+    { radius: 160, tiltX: 1.15, tiltY: -0.3, speed: -0.0035, dashCount: 40, tickLen: 6 }
+  ];
+
+  // 3. HIERARCHICAL ORBITAL CLUSTERS (BRANCHING 3D SYSTEM)
+  // Wikipedia is strictly grouped under Study Hub as requested!
+  var orbitalClusters = [
+    {
+      id: "study",
+      name: "01 // STUDY HUB",
+      category: "ACADEMIC",
+      fullName: "STUDY HUB // PROTOCOLS & GOALS",
+      drawer: "study-drawer",
+      angle: 0,
+      dist: 290,
+      tilt: 0.22,
+      children: [
+        { id: "wiki", name: "WIKIPEDIA", fullName: "WIKIPEDIA // KNOWLEDGE ENGINE", drawer: "wiki-drawer", subAngle: -0.58, subDist: 94, subTilt: 0.22 },
+        { id: "solver", name: "AI SOLVER", fullName: "GEMINI 3.6 VISION SOLVER", drawer: "solver-drawer", subAngle: 0.02, subDist: 108, subTilt: -0.28 },
+        { id: "notes", name: "NOTES", fullName: "STICKY STUDY NOTES", drawer: "notes-drawer", subAngle: 0.62, subDist: 90, subTilt: 0.18 }
+      ]
+    },
+    {
+      id: "pc",
+      name: "02 // HARDWARE & PC",
+      category: "SYSTEM & WORKSTATIONS",
+      fullName: "HARDWARE // LAPTOP & LINUX PC",
+      drawer: "pc-drawer",
+      angle: Math.PI * 0.5,
+      dist: 280,
+      tilt: -0.32,
+      children: [
+        { id: "diag", name: "DIAGNOSTICS", fullName: "SYSTEM DIAGNOSTICS & TELEMETRY", drawer: "diag-drawer", subAngle: -0.54, subDist: 98, subTilt: -0.22 },
+        { id: "files", name: "FILES", fullName: "FILE MANAGER & WORKSPACE", drawer: "files-drawer", subAngle: 0.08, subDist: 104, subTilt: 0.28 },
+        { id: "clipboard", name: "CLIPBOARD", fullName: "CLIPBOARD SYNC & HISTORY", drawer: "clipboard-drawer", subAngle: 0.66, subDist: 88, subTilt: -0.12 }
+      ]
+    },
+    {
+      id: "ac",
+      name: "03 // MIRAIe AC",
+      category: "CLIMATE & IOT",
+      fullName: "PANASONIC AC // 24°C CLIMATE",
+      drawer: "ac-drawer",
+      angle: Math.PI * 1.0,
+      dist: 295,
+      tilt: 0.35,
+      children: [
+        { id: "reminders", name: "REMINDERS", fullName: "TIMERS, ALARMS & SCHEDULES", drawer: "reminders-drawer", subAngle: -0.45, subDist: 92, subTilt: 0.22 },
+        { id: "analytics", name: "ANALYTICS", fullName: "SYSTEM ANALYTICS & USAGE", drawer: "analytics-drawer", subAngle: 0.45, subDist: 94, subTilt: -0.24 }
+      ]
+    },
+    {
+      id: "media",
+      name: "04 // MEDIA CORE",
+      category: "OPERATIONS",
+      fullName: "YOUTUBE & MEDIA DISPATCHER",
+      drawer: "media-drawer",
+      angle: Math.PI * 1.5,
+      dist: 285,
+      tilt: -0.25,
+      children: [
+        { id: "console", name: "TERMINAL", fullName: "JARVIS LIVE CONSOLE", action: "toggleChat", subAngle: -0.48, subDist: 96, subTilt: 0.18 },
+        { id: "vision", name: "AI VISION", fullName: "SCREEN CAPTURE & SOLVER", action: "solveScreenProblemUI", subAngle: 0.48, subDist: 96, subTilt: -0.2 }
+      ]
+    }
+  ];
+
+  // Camera, Gyro & Zoom Tracking
+  var rotX = 0.12, rotY = 0.35;
+  var targetRotX = 0.12, targetRotY = 0.35;
+  var zoom = 1.0, targetZoom = 1.0;
+  var isDragging = false;
+  var startX = 0, startY = 0;
+  var hoveredNode = null;
+  var activeHitTargets = [];
+  var pulseTime = 0;
+
+  // Mouse drag tracking
+  canvas.addEventListener('mousedown', function(e){
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+  window.addEventListener('mouseup', function(){ isDragging = false; });
+  window.addEventListener('mousemove', function(e){
+    if(isDragging){
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      targetRotY += dx * 0.006;
+      targetRotX -= dy * 0.006;
+      startX = e.clientX;
+      startY = e.clientY;
+    }
+    checkHover(e.clientX, e.clientY);
+  });
+
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel', function(e){
+    e.preventDefault();
+    targetZoom += (e.deltaY < 0 ? 0.12 : -0.12);
+    targetZoom = Math.max(0.45, Math.min(2.5, targetZoom));
+    updateZoomHUD();
+  }, {passive: false});
+
+  // Touch Support & Pinch-to-Zoom
+  var initialPinchDist = null;
+  var initialZoom = 1.0;
+  canvas.addEventListener('touchstart', function(e){
+    if(e.touches.length === 1){
+      isDragging = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    } else if(e.touches.length === 2){
+      isDragging = false;
+      initialPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialZoom = targetZoom;
+    }
+  }, {passive: true});
+
+  canvas.addEventListener('touchend', function(){
+    isDragging = false;
+    initialPinchDist = null;
+  });
+
+  canvas.addEventListener('touchmove', function(e){
+    if(isDragging && e.touches.length === 1){
+      var dx = e.touches[0].clientX - startX;
+      var dy = e.touches[0].clientY - startY;
+      targetRotY += dx * 0.006;
+      targetRotX -= dy * 0.006;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    } else if(e.touches.length === 2 && initialPinchDist){
+      var curDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      targetZoom = Math.max(0.45, Math.min(2.5, initialZoom * (curDist / initialPinchDist)));
+      updateZoomHUD();
+    }
+  }, {passive: true});
+
+  // Click handler on 3D Astrolabe Nodes
+  canvas.addEventListener('click', function(e){
+    if(Math.hypot(e.clientX - startX, e.clientY - startY) > 8) return;
+    var hit = checkHover(e.clientX, e.clientY);
+    if(hit){
+      if(hit.drawer){
+        openDrawer(hit.drawer);
+        toast('Engaged ' + hit.name, 'ok');
+        addHUDLog('NAV', 'Engaged ' + hit.name);
+      } else if(hit.action && typeof window[hit.action] === 'function'){
+        window[hit.action]();
+        toast('Engaged ' + hit.name, 'ok');
+        addHUDLog('CMD', 'Executed ' + hit.name);
+      }
+    }
+  });
+
+  function project(x, y, z, cosY, sinY, cosX, sinX){
+    var x1 = x * cosY - z * sinY;
+    var z1 = x * sinY + z * cosY;
+    var y1 = y * cosX - z1 * sinX;
+    var z2 = y * sinX + z1 * cosX;
+
+    var fov = 420;
+    var scale = (fov / (fov + z2)) * zoom;
+    return {
+      x: cx + x1 * scale,
+      y: cy + y1 * scale,
+      z: z2,
+      scale: scale
+    };
+  }
+
+  function checkHover(mx, my){
+    hoveredNode = null;
+    for(var i = 0; i < activeHitTargets.length; i++){
+      var ht = activeHitTargets[i];
+      if(Math.hypot(mx - ht.x, my - ht.y) < ht.r){
+        hoveredNode = ht.target;
+        canvas.style.cursor = 'pointer';
+        return ht.target;
+      }
+    }
+    canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+    return null;
+  }
+
+  // Animation Loop
+  function draw(){
+    ctx.clearRect(0, 0, w, h);
+    var speedMul = isVisualizerActive ? 2.0 : 1.0;
+    pulseTime += 0.026 * speedMul;
+
+    rotY += (targetRotY - rotY) * 0.07 + (0.002 * speedMul);
+    rotX += (targetRotX - rotX) * 0.07;
+    zoom += (targetZoom - zoom) * 0.1;
+
+    var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+    // ── 1. CENTRAL STELLAR WARM GLOW ──
+    var corePulse = Math.sin(pulseTime * 2.2) * 6;
+    var coreGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, (54 + corePulse) * zoom);
+    coreGrad.addColorStop(0, "#ffffff");
+    coreGrad.addColorStop(0.16, "#ffe699");
+    coreGrad.addColorStop(0.42, "rgba(245, 158, 11, 0.95)");
+    coreGrad.addColorStop(0.72, "rgba(180, 83, 9, 0.4)");
+    coreGrad.addColorStop(1, "transparent");
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, (54 + corePulse) * zoom, 0, Math.PI * 2);
+    ctx.fill();
+
+    var outerGlow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 140 * zoom);
+    outerGlow.addColorStop(0, "rgba(245, 158, 11, 0.26)");
+    outerGlow.addColorStop(0.5, "rgba(146, 64, 14, 0.08)");
+    outerGlow.addColorStop(1, "transparent");
+    ctx.fillStyle = outerGlow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 140 * zoom, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ── 2. 3D SEGMENTED GIMBAL COORDINATE RINGS ──
+    gimbalRings.forEach(function(ring){
+      var rAngle = pulseTime * ring.speed * 8;
+      var numSegments = ring.dashCount;
+
+      for(var s = 0; s < numSegments; s++){
+        var a1 = (s / numSegments) * Math.PI * 2 + rAngle;
+        var a2 = ((s + 0.55) / numSegments) * Math.PI * 2 + rAngle;
+
+        var rx1 = ring.radius * Math.cos(a1);
+        var rz1 = ring.radius * Math.sin(a1);
+        var ry1 = (rx1 * Math.sin(ring.tiltX) + rz1 * Math.cos(ring.tiltX)) * ring.tiltY;
+
+        var rx2 = ring.radius * Math.cos(a2);
+        var rz2 = ring.radius * Math.sin(a2);
+        var ry2 = (rx2 * Math.sin(ring.tiltX) + rz2 * Math.cos(ring.tiltX)) * ring.tiltY;
+
+        var p1 = project(rx1, ry1, rz1, cosY, sinY, cosX, sinX);
+        var p2 = project(rx2, ry2, rz2, cosY, sinY, cosX, sinX);
+
+        var zNorm = (p1.z + ring.radius) / (ring.radius * 2);
+        var alpha = Math.max(0.12, Math.min(0.95, zNorm));
+
+        ctx.strokeStyle = "rgba(245, 158, 11, " + alpha + ")";
+        ctx.lineWidth = Math.max(1, p1.scale * (s % 4 === 0 ? 2.2 : 1.2));
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        if(s % 4 === 0){
+          var outRad = ring.radius + ring.tickLen;
+          var rxT = outRad * Math.cos(a1);
+          var rzT = outRad * Math.sin(a1);
+          var ryT = (rxT * Math.sin(ring.tiltX) + rzT * Math.cos(ring.tiltX)) * ring.tiltY;
+          var pT = project(rxT, ryT, rzT, cosY, sinY, cosX, sinX);
+
+          ctx.strokeStyle = "rgba(254, 243, 199, " + (alpha * 0.85) + ")";
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(pT.x, pT.y);
+          ctx.stroke();
+        }
+      }
+    });
+
+    // ── 3. 3D STAR SWARM (DEPTH-SORTED) ──
+    var projectedPts = [];
+    for(var i = 0; i < particles.length; i++){
+      var pt = particles[i];
+      var prj = project(pt.x, pt.y, pt.z, cosY, sinY, cosX, sinX);
+      var alpha = (prj.z + sphereRad) / (sphereRad * 2);
+      alpha = Math.max(0.08, Math.min(0.95, alpha));
+      projectedPts.push({ x: prj.x, y: prj.y, z: prj.z, scale: prj.scale, alpha: alpha, sz: pt.baseSize });
+    }
+    projectedPts.sort(function(a, b){ return a.z - b.z; });
+
+    for(var j = 0; j < projectedPts.length; j++){
+      var p = projectedPts[j];
+      var dotR = p.sz * p.scale;
+      ctx.fillStyle = "rgba(245, 158, 11, " + p.alpha + ")";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+      ctx.fill();
+
+      if(p.alpha > 0.65 && p.sz > 1.2){
+        ctx.fillStyle = "rgba(255, 255, 255, " + (p.alpha * 0.9) + ")";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, dotR * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ── 4. 3D HIERARCHICAL ORBITAL CLUSTERS & SATELLITE BRANCHES ──
+    activeHitTargets = [];
+
+    orbitalClusters.forEach(function(cluster){
+      var curAngle = cluster.angle + pulseTime * 0.006;
+      var nx = cluster.dist * Math.cos(curAngle);
+      var nz = cluster.dist * Math.sin(curAngle);
+      var ny = (nx * 0.35) * cluster.tilt;
+
+      var p = project(nx, ny, nz, cosY, sinY, cosX, sinX);
+      var zNorm = (p.z + cluster.dist) / (cluster.dist * 2);
+      var parentAlpha = Math.max(0.2, Math.min(1.0, zNorm));
+
+      var isParentHov = (hoveredNode && hoveredNode.id === cluster.id);
+      var isChildOfParentHov = (hoveredNode && hoveredNode.parentId === cluster.id);
+      var clusterLit = isParentHov || isChildOfParentHov;
+
+      // Coordinate ray connecting parent hub to central core
+      ctx.strokeStyle = clusterLit ? "rgba(254, 243, 199, 0.95)" : "rgba(245, 158, 11, " + (parentAlpha * 0.35) + ")";
+      ctx.lineWidth = clusterLit ? 1.8 : 1;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw local sub-orbital orbit circle in 3D around parent
+      var orbitR = 95;
+      ctx.strokeStyle = clusterLit ? "rgba(245, 158, 11, 0.55)" : "rgba(245, 158, 11, 0.12)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 5]);
+      ctx.beginPath();
+      for(var a = 0; a <= Math.PI * 2; a += 0.25){
+        var lox = nx + orbitR * Math.cos(a);
+        var loz = nz + orbitR * Math.sin(a);
+        var loy = ny + (orbitR * 0.35 * Math.sin(a)) * cluster.tilt;
+        var lp = project(lox, loy, loz, cosY, sinY, cosX, sinX);
+        if(a === 0) ctx.moveTo(lp.x, lp.y);
+        else ctx.lineTo(lp.x, lp.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // ── DRAW CHILD SATELLITE BRANCHES (E.G. WIKIPEDIA UNDER STUDY) ──
+      for(var c = 0; c < cluster.children.length; c++){
+        var child = cluster.children[c];
+        child.parentId = cluster.id;
+        child.parentName = cluster.name;
+        child.parentCategory = cluster.category;
+
+        var cAngle = curAngle + child.subAngle + (pulseTime * 0.014);
+        var cx_pos = nx + child.subDist * Math.cos(cAngle);
+        var cz_pos = nz + child.subDist * Math.sin(cAngle);
+        var cy_pos = ny + (child.subDist * 0.4 * Math.sin(cAngle)) + (child.subTilt * 45);
+
+        var cp = project(cx_pos, cy_pos, cz_pos, cosY, sinY, cosX, sinX);
+        var czNorm = (cp.z + cluster.dist) / (cluster.dist * 2);
+        var childAlpha = Math.max(0.2, Math.min(1.0, czNorm));
+        var isThisChildHov = (hoveredNode && hoveredNode.id === child.id);
+
+        // Luminous branch laser connecting parent to child
+        var branchActive = isThisChildHov || isParentHov;
+        ctx.strokeStyle = branchActive ? "#fbbf24" : "rgba(245, 158, 11, " + (childAlpha * 0.45) + ")";
+        ctx.lineWidth = branchActive ? 2.2 : 1.1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(cp.x, cp.y);
+        ctx.stroke();
+
+        // Flowing data photon on the branch ray
+        var photonProg = (pulseTime * 0.9 + c * 0.33) % 1;
+        var phX = p.x + (cp.x - p.x) * photonProg;
+        var phY = p.y + (cp.y - p.y) * photonProg;
+        ctx.fillStyle = branchActive ? "#ffffff" : "rgba(254, 243, 199, 0.75)";
+        ctx.beginPath();
+        ctx.arc(phX, phY, (branchActive ? 2.5 : 1.5) * cp.scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Child node disc
+        var cnr = (isThisChildHov ? 7.5 : 5) * cp.scale;
+        ctx.fillStyle = isThisChildHov ? "#ffffff" : "rgba(245, 158, 11, " + childAlpha + ")";
+        ctx.beginPath();
+        ctx.arc(cp.x, cp.y, cnr, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = isThisChildHov ? "#fbbf24" : "rgba(254, 243, 199, 0.8)";
+        ctx.lineWidth = isThisChildHov ? 2 : 1;
+        ctx.stroke();
+
+        // Child label & Breadcrumb
+        if(isThisChildHov){
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold " + Math.round(11 * cp.scale) + "px 'SF Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("[" + cluster.category + "] ➔ " + child.name, cp.x, cp.y + cnr + 14);
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "600 " + Math.round(9 * cp.scale) + "px 'SF Mono', monospace";
+          ctx.fillText("CLICK TO OPEN", cp.x, cp.y + cnr + 26);
+        } else {
+          ctx.fillStyle = "rgba(254, 243, 199, " + (childAlpha * 0.85) + ")";
+          ctx.font = "600 " + Math.round(8 * cp.scale) + "px 'SF Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(child.name, cp.x, cp.y + cnr + 11);
+        }
+
+        activeHitTargets.push({
+          target: child,
+          x: cp.x,
+          y: cp.y,
+          r: 22 * cp.scale
+        });
+      }
+
+      // ── DRAW PRIMARY CLUSTER HUB NODE ──
+      var pnr = (isParentHov ? 10 : 7.5) * p.scale;
+      ctx.fillStyle = isParentHov ? "#ffffff" : "rgba(245, 158, 11, " + parentAlpha + ")";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, pnr, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = isParentHov ? "#fbbf24" : "#ffffff";
+      ctx.lineWidth = isParentHov ? 2.5 : 1.2;
+      ctx.stroke();
+
+      if(isParentHov){
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold " + Math.round(12 * p.scale) + "px 'SF Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(cluster.fullName || cluster.name, p.x, p.y + pnr + 16);
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "600 " + Math.round(9.5 * p.scale) + "px 'SF Mono', monospace";
+        ctx.fillText("PRIMARY HUB // CLICK TO ENGAGE", p.x, p.y + pnr + 28);
+      } else {
+        ctx.fillStyle = "rgba(254, 243, 199, " + (parentAlpha * 0.9) + ")";
+        ctx.font = "bold " + Math.round(9.5 * p.scale) + "px 'SF Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(cluster.name, p.x, p.y + pnr + 14);
+      }
+
+      activeHitTargets.push({
+        target: cluster,
+        x: p.x,
+        y: p.y,
+        r: 26 * p.scale
+      });
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  window.reset3DCamera = function(){
+    targetRotX = 0.12;
+    targetRotY = 0.35;
+    targetZoom = 1.0;
+    updateZoomHUD();
+    toast('Camera & Zoom reset to origin', 'ok');
+  };
+
+  window.adjust3DZoom = function(delta){
+    targetZoom = Math.max(0.45, Math.min(2.5, targetZoom + delta));
+    updateZoomHUD();
+  };
+
+  window.reset3DZoom = function(){
+    targetZoom = 1.0;
+    updateZoomHUD();
+    toast('3D Zoom reset to 100%', 'ok');
+  };
+
+  function updateZoomHUD(){
+    var el = document.getElementById('hud-zoom-val');
+    if(el) el.textContent = Math.round(targetZoom * 100) + '%';
+  }
+
+  // Uptime & Dynamic Audio Bar
+  var startTime = Date.now();
+  setInterval(function(){
+    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+    var mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    var secs = String(elapsed % 60).padStart(2, '0');
+    var upEl = document.getElementById('hud-uptime');
+    if(upEl) upEl.textContent = mins + ':' + secs;
+
+    var bar = document.getElementById('hud-audio-bar');
+    if(bar){
+      if(isVisualizerActive){
+        bar.style.width = (45 + Math.random() * 50).toFixed(0) + '%';
+      } else {
+        bar.style.width = (20 + Math.sin(Date.now() / 600) * 15).toFixed(0) + '%';
+      }
+    }
+  }, 100);
+})();
+
+// ── UNIVERSAL WINDOW RESIZING & MAXIMIZE SYSTEM ──
+function toggleDrawerMaximize(id){
+  var d = document.getElementById(id);
+  if(!d) return;
+  d.classList.toggle('maximized');
+  var btn = d.querySelector('.drawer-btn-maximize i');
+  if(btn){
+    if(d.classList.contains('maximized')){
+      btn.className = 'fa fa-down-left-and-up-right-to-center';
+      toast('Window maximized (96vw)', 'ok');
+    } else {
+      btn.className = 'fa fa-up-right-and-down-left-from-center';
+      toast('Window restored', 'ok');
+    }
+  }
+}
+
+(function initDrawerResizing(){
+  document.querySelectorAll('.feature-drawer').forEach(function(drawer){
+    if(!drawer.querySelector('.drawer-resizer')){
+      var resizer = document.createElement('div');
+      resizer.className = 'drawer-resizer';
+      resizer.title = 'Drag to resize window';
+      resizer.innerHTML = '<i class="fa fa-grip-lines-vertical" style="transform:rotate(45deg);font-size:10px"></i>';
+      drawer.appendChild(resizer);
+    }
+  });
+
+  var activeDrawer = null;
+  var startX, startY, startW, startH;
+
+  document.addEventListener('mousedown', function(e){
+    var resizer = e.target.closest('.drawer-resizer');
+    if(resizer){
+      activeDrawer = resizer.closest('.feature-drawer');
+      if(activeDrawer){
+        e.preventDefault();
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = activeDrawer.offsetWidth;
+        startH = activeDrawer.offsetHeight;
+        document.body.style.cursor = 'se-resize';
+      }
+    }
+  });
+
+  document.addEventListener('mousemove', function(e){
+    if(activeDrawer){
+      var dx = (e.clientX - startX) * 2;
+      var dy = (e.clientY - startY) * 2;
+      var newW = Math.max(360, Math.min(window.innerWidth * 0.96, startW + dx));
+      var newH = Math.max(260, Math.min(window.innerHeight * 0.94, startH + dy));
+      activeDrawer.style.width = newW + 'px';
+      activeDrawer.style.maxWidth = '96vw';
+      activeDrawer.style.height = newH + 'px';
+      activeDrawer.style.maxHeight = '94vh';
+      activeDrawer.classList.remove('maximized');
+    }
+  });
+
+  document.addEventListener('mouseup', function(){
+    if(activeDrawer){
+      activeDrawer = null;
+      document.body.style.cursor = '';
+    }
+  });
+
+  // Touch Drag Support for Resizer
+  document.addEventListener('touchstart', function(e){
+    var resizer = e.target.closest('.drawer-resizer');
+    if(resizer && e.touches.length === 1){
+      activeDrawer = resizer.closest('.feature-drawer');
+      if(activeDrawer){
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startW = activeDrawer.offsetWidth;
+        startH = activeDrawer.offsetHeight;
+      }
+    }
+  }, {passive: true});
+
+  document.addEventListener('touchmove', function(e){
+    if(activeDrawer && e.touches.length === 1){
+      var dx = (e.touches[0].clientX - startX) * 2;
+      var dy = (e.touches[0].clientY - startY) * 2;
+      var newW = Math.max(360, Math.min(window.innerWidth * 0.96, startW + dx));
+      var newH = Math.max(260, Math.min(window.innerHeight * 0.94, startH + dy));
+      activeDrawer.style.width = newW + 'px';
+      activeDrawer.style.maxWidth = '96vw';
+      activeDrawer.style.height = newH + 'px';
+      activeDrawer.style.maxHeight = '94vh';
+      activeDrawer.classList.remove('maximized');
+    }
+  }, {passive: true});
+
+  document.addEventListener('touchend', function(){
+    activeDrawer = null;
+  });
+})();
+
+
+// ── 3. TACTICAL RADAR MINI VISUALIZER (BOTTOM-RIGHT) ─────────
+(function initRadar(){
+  var rCanvas = document.getElementById('radar-canvas');
+  if(!rCanvas) return;
+  var rctx = rCanvas.getContext('2d');
+  var sweepAngle = 0;
+
+  function renderRadar(){
+    var rw = rCanvas.parentElement.clientWidth;
+    var rh = rCanvas.parentElement.clientHeight;
+    rCanvas.width = rw;
+    rCanvas.height = rh;
+
+    rctx.clearRect(0, 0, rw, rh);
+    var rcx = rw / 2;
+    var rcy = rh / 2;
+    var maxR = Math.min(rw, rh) / 2 - 4;
+
+    // Grid Rings
+    rctx.strokeStyle = "rgba(245, 158, 11, 0.2)";
+    rctx.lineWidth = 1;
+    [0.35, 0.7, 1.0].forEach(function(f){
+      rctx.beginPath();
+      rctx.arc(rcx, rcy, maxR * f, 0, Math.PI * 2);
+      rctx.stroke();
+    });
+
+    // Crosshairs
+    rctx.beginPath();
+    rctx.moveTo(rcx - maxR, rcy);
+    rctx.lineTo(rcx + maxR, rcy);
+    rctx.moveTo(rcx, rcy - maxR);
+    rctx.lineTo(rcx, rcy + maxR);
+    rctx.stroke();
+
+    // Radar Sweep
+    sweepAngle += 0.04;
+    var sx = rcx + maxR * Math.cos(sweepAngle);
+    var sy = rcy + maxR * Math.sin(sweepAngle);
+    rctx.strokeStyle = "rgba(251, 191, 36, 0.85)";
+    rctx.lineWidth = 1.5;
+    rctx.beginPath();
+    rctx.moveTo(rcx, rcy);
+    rctx.lineTo(sx, sy);
+    rctx.stroke();
+
+    // Active Node Blips
+    var blips = [
+      { x: rcx + maxR * 0.5, y: rcy - maxR * 0.2 },
+      { x: rcx - maxR * 0.6, y: rcy + maxR * 0.4 },
+      { x: rcx + maxR * 0.3, y: rcy + maxR * 0.7 }
+    ];
+    blips.forEach(function(b){
+      rctx.fillStyle = "#10b981";
+      rctx.beginPath();
+      rctx.arc(b.x, b.y, 2.5, 0, Math.PI * 2);
+      rctx.fill();
+    });
+
+    requestAnimationFrame(renderRadar);
+  }
+  renderRadar();
+})();
+
+// ── 4. UI DRAWER & MENU CONTROLLERS ──────────────────────────
+function toggleChat(){
+  var d = document.getElementById('chat-drawer');
+  if(d) d.classList.toggle('open');
+}
+
+function toggleAppsMenu(){
+  var g = document.getElementById('apps-grid');
+  if(g) g.classList.toggle('open');
+}
+
+
+function openDrawer(id){
+  closeAllDrawers();
+  if(id === 'study' || id === 'sec-study') id = 'study-drawer';
+  if(id === 'wiki' || id === 'sec-wiki') id = 'wiki-drawer';
+  if(id === 'notes' || id === 'sec-notes') id = 'notes-drawer';
+  if(id === 'analytics' || id === 'sec-analytics') id = 'analytics-drawer';
+  if(id === 'clipboard' || id === 'sec-clipboard') id = 'clipboard-drawer';
+  if(id === 'diag' || id === 'sec-diag') id = 'diag-drawer';
+  if(id === 'reminders' || id === 'sec-reminders') id = 'reminders-drawer';
+  if(id === 'files' || id === 'sec-files') id = 'files-drawer';
+  if(id === 'media' || id === 'sec-media') id = 'media-drawer';
+  if(id === 'ac' || id === 'sec-ac') id = 'ac-drawer';
+  if(id === 'solver' || id === 'sec-solver') id = 'solver-drawer';
+  if(id === 'pc' || id === 'sec-pc') id = 'pc-drawer';
+  var d = document.getElementById(id);
+  if(d){
+    d.classList.add('open');
+  }
+}
+
+function showSec(name){
+  if(!name || name === 'dash'){
+    closeAllDrawers();
+    return;
+  }
+  openDrawer(name);
+}
+
+
+function closeDrawer(id){
+  var d = document.getElementById(id);
+  if(d) d.classList.remove('open');
+}
+
+function closeAllDrawers(){
+  document.querySelectorAll('.feature-drawer').forEach(function(el){
+    el.classList.remove('open');
+  });
+  var g = document.getElementById('apps-grid');
+  if(g) g.classList.remove('open');
+}
+
+window.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    closeAllDrawers();
+    var cd = document.getElementById('chat-drawer');
+    if(cd) cd.classList.remove('open');
+  }
+});
+
+// ── 5. COMMAND DISPATCHER & INTEGRATIONS ──────────────────────
+function quick(cmd){
+  var inp = document.getElementById('cmd-input');
+  if(inp) inp.value = cmd;
+  sendCmd();
+}
+
+function sendCmd(cmdOverride){
+  var inp = document.getElementById('cmd-input');
+  var txt = (cmdOverride || (inp ? inp.value.trim() : '')).trim();
+  if(!txt) return;
+  if(inp) inp.value = '';
+
+  appendChatMsg('user', txt);
+  addHUDLog('CMD', txt);
+  toast('Executing: ' + txt, 'ok');
+
+  fetch('/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({command: txt})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    var res = d.result || 'Command acknowledged.';
+    appendChatMsg('jarvis', res);
+    addHUDLog('JARVIS', res.substring(0, 45));
+    speak(res);
+  })
+  .catch(function(err){
+    var errMsg = 'Error executing command: ' + err.message;
+    appendChatMsg('jarvis', errMsg);
+    addHUDLog('ERR', errMsg);
+  });
+}
+
+function sendDrawerCmd(){
+  var inp = document.getElementById('drawer-input');
+  if(!inp) return;
+  var txt = inp.value.trim();
+  if(!txt) return;
+  inp.value = '';
+  sendCmd(txt);
+}
+
+function appendChatMsg(role, text){
+  var msgs = document.getElementById('chat-msgs');
+  if(!msgs) return;
+  var b = document.createElement('div');
+  b.className = 'msg-bubble ' + (role === 'user' ? 'msg-user' : 'msg-jarvis');
+  b.textContent = text;
+  msgs.appendChild(b);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── 6. SPEECH SYNTHESIS & RECOGNITION ────────────────────────
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  var clean = text.replace(/[*_#`]/g, '').substring(0, 240);
+  var u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'en-US';
+  u.rate = 1.05;
+  u.onstart = function(){ isVisualizerActive = true; };
+  u.onend = function(){ isVisualizerActive = false; };
+  window.speechSynthesis.speak(u);
+}
+
+var recognition = null;
+var isListening = false;
+function toggleMic(){
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRec){
+    toast('Speech Recognition not supported in this browser', 'warn');
+    return;
+  }
+  if(!recognition){
+    recognition = new SpeechRec();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onstart = function(){
+      isListening = true;
+      var mic = document.getElementById('mic-icon');
+      if(mic) mic.style.color = '#ef4444';
+      var state = document.getElementById('hud-state');
+      if(state) state.textContent = 'HEARING';
+      toast('Listening...', 'info');
+      addHUDLog('VOICE', 'Listening for speech...');
+    };
+    recognition.onresult = function(e){
+      var transcript = e.results[0][0].transcript;
+      toast('Heard: ' + transcript, 'ok');
+      sendCmd(transcript);
+    };
+    recognition.onerror = function(e){
+      toast('Voice error: ' + e.error, 'warn');
+    };
+    recognition.onend = function(){
+      isListening = false;
+      var mic = document.getElementById('mic-icon');
+      if(mic) mic.style.color = '';
+      var state = document.getElementById('hud-state');
+      if(state) state.textContent = 'LISTENING';
+    };
+  }
+
+  if(isListening){
+    recognition.stop();
+  } else {
+    recognition.start();
+  }
+}
+
+// ── 7. PANASONIC AC CONTROLS ─────────────────────────────────
+function toggleAC(){
+  sendCmd('ac ' + (acOn ? 'off' : 'on'));
+}
+
+function adjustTemp(delta){
+  var newT = Math.max(16, Math.min(30, curTemp + delta));
+  curTemp = newT;
+  var d = document.getElementById('drawer-ac-temp');
+  if(d) d.textContent = newT;
+  var h = document.getElementById('hud-temp');
+  if(h) h.textContent = newT + '°C';
+  sendCmd('set ac to ' + newT);
+}
+
+// ── 8. MEDIA PLAYER CONTROLS ─────────────────────────────────
+function playYTFromDrawer(){
+  var inp = document.getElementById('yt-search-in');
+  var q = inp ? inp.value.trim() : '';
+  if(!q) return;
+  quick('play ' + q + ' on laptop');
+}
+
+// ── 9. GEMINI 3.6 VISION SOLVER ──────────────────────────────
+function triggerScreenSolve(){
+  var disp = document.getElementById('solver-display-txt');
+  if(disp) disp.textContent = 'Analyzing screen problem with Gemini 3.6 Flash...';
+  addHUDLog('SOLVER', 'Screen capture dispatched...');
+
+  fetch('/study/solve_screen', {method: 'POST'})
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(disp) disp.innerHTML = escHtml(d.result || 'Analysis complete. No formula detected.');
+    toast('Gemini solver finished analysis', 'ok');
+    addHUDLog('SOLVER', 'Step-by-step solution ready');
+  })
+  .catch(function(err){
+    if(disp) disp.textContent = 'Error analyzing screen: ' + err.message;
+    addHUDLog('ERR', 'Screen solver error');
+  });
+}
+
+function triggerCameraSolve(){
+  var inp = document.getElementById('book-photo-input');
+  if(inp) inp.click();
+}
+
+function handlePhotoUpload(input){
+  if(!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var disp = document.getElementById('solver-display-txt');
+  if(disp) disp.textContent = 'Uploading book snapshot to Gemini 3.6 Flash...';
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    fetch('/study/solve_photo', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({image: e.target.result})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(disp) disp.innerHTML = escHtml(d.result || 'Photo solved.');
+      toast('Photo solved by Gemini Flash!', 'ok');
+    })
+    .catch(function(){
+      if(disp) disp.textContent = 'Failed to analyze book photo.';
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── 10. REAL-TIME TELEMETRY POLLING ──────────────────────────
+function doStatus(){
+  fetch('/status')
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    if(d.ac && d.ac.temp){
+      curTemp = d.ac.temp;
+      acOn = d.ac.power === 'on';
+      var tEl = document.getElementById('hud-temp');
+      if(tEl) tEl.textContent = curTemp + '°C';
+      var dAc = document.getElementById('drawer-ac-temp');
+      if(dAc) dAc.textContent = curTemp;
+    }
+    if(d.battery && d.battery.percent >= 0){
+      var pEl = document.getElementById('hud-power');
+      if(pEl) pEl.textContent = d.battery.percent + '%';
+      var lapStats = document.getElementById('drawer-lap-stats');
+      if(lapStats && d.laptop){
+        lapStats.textContent = 'CPU ' + d.laptop.cpu + '% · RAM ' + d.laptop.ram + '% · Battery ' + d.battery.percent + '%';
+      }
+    }
+  })
+  .catch(function(){});
+}
+setInterval(doStatus, 8000);
+doStatus();
+
+
+
+// State variables for Pomodoro & Study Hub & Flashcards & Reminders
+let pomoWork = 25 * 60;
+let pomoBreak = 5 * 60;
+let pomoDur = pomoWork;
+let pomoLeft = pomoWork;
+let pomoRunning = false;
+let pomoIsWork = true;
+let pomoTimer = null;
+let pomoSessions = 0;
+const PCIRC = 2 * Math.PI * 54; // 339.29
+
+var _ssInt = null;
+var _flashcards = [];
+var _fcIdx = 0;
+var _fcFlipped = false;
+var _fileSearchTimer = null;
+var currentMediaTarget = 'laptop';
+
+
+function tick(){
+  var n=new Date(),h=n.getHours(),m=n.getMinutes(),s=n.getSeconds();
+  var ap=h>=12?'PM':'AM',h12=h%12||12;
+  document.getElementById('clock').textContent=pad(h12)+':'+pad(m)+':'+pad(s)+' '+ap;
+  var dy=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('datedisp').textContent=dy[n.getDay()]+', '+mo[n.getMonth()]+' '+n.getDate();
+  var gr=['Morning','Afternoon','Evening','Night'];
+  var gi=h<12?0:h<17?1:h<21?2:3;
+  document.getElementById('greeting').textContent='Good '+gr[gi]+', Heisenberg.';
+}
+
+function pad(n){return String(n).padStart(2,'0');}
+setInterval(tick,1000);tick();
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+
+function stopSpeaking(){
+  if(window.speechSynthesis){
+    speechSynthesis.cancel();
+  }
+  if(window.setVisualizerActive) window.setVisualizerActive(false);
+}
+
+function sendTxt(){
+  stopSpeaking();
+  var i=document.getElementById('tcmd');
+  if(i.value.trim()){sendCmd(i.value.trim());i.value='';}
+}
+
+function pauseEmbeddedYoutube(){
+  var iframe = document.getElementById('yt-iframe');
+  if(iframe && iframe.contentWindow){
+    iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+  }
+}
+
+function resumeEmbeddedYoutube(){
+  var iframe = document.getElementById('yt-iframe');
+  if(iframe && iframe.contentWindow){
+    iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+  }
+}
+
+function runScene(sname){
+  stopSpeaking();
+  toast('Activating '+sname+'...','info');
+  fetch('/scene/'+encodeURIComponent(sname),{method:'POST'})
+  .then(function(r){return r.json();}).then(function(d){
+    var out=document.getElementById('jresp');
+    out.className='cmd-resp';out.textContent='▸ '+d.result;speak(d.result);
+    toast(d.result.substring(0,60),'ok');
+  }).catch(function(){toast('Scene trigger failed','err');});
+}
+
+function runBriefing(){
+  stopSpeaking();
+  toast('Generating daily briefing...','info');
+  fetch('/briefing').then(function(r){return r.json();}).then(function(d){
+    var out=document.getElementById('jresp');
+    out.className='cmd-resp';out.textContent='▸ '+d.result;speak(d.result);
+    toast('Briefing complete!','ok');
+  }).catch(function(){toast('Briefing error','err');});
+}
+
+// ═══════════════════════════════════════════════════════════
+// AC
+// ═══════════════════════════════════════════════════════════
+
+function setTemp(t){curTemp=t;document.getElementById('ac-temp').textContent=t;sendCmd('set ac temperature to '+t);}
+
+// ═══════════════════════════════════════════════════════════
+// MEDIA
+// ═══════════════════════════════════════════════════════════
+
+function setMT(t){mediaTarget=t;['laptop','pc'].forEach(function(x){document.getElementById('mt-'+x).classList.toggle('active',x===t);});}
+
+function mCmd(a){
+  if(a === 'stop music' || a === 'stop'){
+    hideYoutubePlayer();
+  }
+  sendCmd(a+' on my '+mediaTarget);
+}
+
+function announceText(){var t=document.getElementById('ann-txt').value.trim();if(t){sendCmd('announce '+t);document.getElementById('ann-txt').value='';}}
+
+// ═══════════════════════════════════════════════════════════
+// STATUS POLLING
+// ═══════════════════════════════════════════════════════════
+
+function fetchPCStats(){
+  fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:'pc status'})})
+  .then(function(r){return r.json();}).then(function(d){
+    var txt=d.result;
+    var cpu=(/CPU:?\s*([\d.]+)/i.exec(txt)||[,'?'])[1];
+    var ram=(/RAM:?\s*([\d.]+)/i.exec(txt)||[,'?'])[1];
+    var dsk=(/Disk:?\s*([\d.]+)/i.exec(txt)||[,'?'])[1];
+    var up=(/Uptime:?\s*(.+?)(?:,|$)/i.exec(txt)||[,'?'])[1];
+    document.getElementById('p-cpu').textContent=cpu+'%';document.getElementById('p-cpu-b').style.width=cpu+'%';
+    document.getElementById('p-ram').textContent=ram+'%';document.getElementById('p-ram-b').style.width=ram+'%';
+    document.getElementById('p-disk').textContent=dsk+'%';document.getElementById('p-disk-b').style.width=dsk+'%';
+    document.getElementById('p-up').textContent=up;
+    var ok=!txt.toLowerCase().includes('error');
+    document.getElementById('dot-pc').className='dot '+(ok?'on':'off');
+    document.getElementById('dot-pc2').className='dot '+(ok?'on':'off');
+    document.getElementById('lbl-pc').textContent=ok?'Online':'Offline';
+    document.getElementById('lbl-pc').className='net-status '+(ok?'on':'off');
+  }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════
+// WEATHER & AQI
+// ═══════════════════════════════════════════════════════════
+
+function fetchWeather(){
+  document.getElementById('wx-loading').style.display='block';
+  document.getElementById('wx-data').style.display='none';
+  document.getElementById('wx-err').style.display='none';
+  fetch('/weather').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('wx-loading').style.display='none';
+    if(d.error){document.getElementById('wx-err').textContent=d.error;document.getElementById('wx-err').style.display='block';return;}
+    document.getElementById('wx-icon').textContent=d.icon;
+    document.getElementById('wx-temp').textContent=d.temp+'\u00b0C';
+    document.getElementById('wx-cond').textContent=d.condition;
+    document.getElementById('wx-hum').textContent=d.humidity+'%';
+    document.getElementById('wx-wind').textContent=d.wind+' km/h';
+
+    // AQI rendering
+    if(d.aqi){
+      var a=d.aqi;
+      var cls=a.status==='Good'?'aqi-good':a.status==='Fair'?'aqi-fair':a.status==='Moderate'?'aqi-mod':'aqi-poor';
+      document.getElementById('wx-aqi').innerHTML='<span class="aqi-badge '+cls+'">'+a.status+' ('+a.aqi+')</span> <span style="font-size:11px;color:var(--text3);margin-left:6px">PM2.5: '+a.pm25+' µg/m³</span>';
+    } else {
+      document.getElementById('wx-aqi').textContent='Good';
+    }
+
+    document.getElementById('wx-data').style.display='block';
+  }).catch(function(){
+    document.getElementById('wx-loading').style.display='none';
+    document.getElementById('wx-err').textContent='Weather unavailable.';
+    document.getElementById('wx-err').style.display='block';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIVE NEWS
+// ═══════════════════════════════════════════════════════════
+
+function fetchNews(){
+  fetch('/news').then(function(r){return r.json();}).then(function(data){
+    if(!data||!data.length)return;
+    // Render top 4 on Dashboard
+    var dashEl=document.getElementById('dash-news-list');
+    if(dashEl){
+      dashEl.innerHTML=data.slice(0,4).map(function(item){
+        return '<a class="news-item" href="'+item.link+'" target="_blank">' +
+               '<div><div class="news-title">'+escHtml(item.title)+'</div>' +
+               '<div class="news-meta">'+escHtml(item.time)+'</div></div>' +
+               '<i class="fa fa-arrow-up-right-from-square" style="color:var(--text3);font-size:11px;margin-top:4px"></i></a>';
+      }).join('');
+    }
+    // Render all in Full News tab
+    var fullEl=document.getElementById('full-news-list');
+    if(fullEl){
+      fullEl.innerHTML=data.map(function(item){
+        return '<a class="news-item" href="'+item.link+'" target="_blank" style="padding:14px 10px">' +
+               '<div><div class="news-title" style="font-size:14px">'+escHtml(item.title)+'</div>' +
+               '<div class="news-meta">'+escHtml(item.time)+' &bull; Google News India</div></div>' +
+               '<i class="fa fa-arrow-up-right-from-square" style="color:var(--accent);font-size:12px"></i></a>';
+      }).join('');
+    }
+  }).catch(function(){});
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCREENSHOT (LIVE)
+// ═══════════════════════════════════════════════════════════
+var _ssInt=null,_ssDev=null,_ssBusy=false;
+
+function viewScreenshot(device){
+  _ssDev=device;
+  var lbl=document.getElementById('ss-dlabel');
+  if(lbl)lbl.textContent=device==='laptop'?'Laptop':'PC (SSH)';
+  document.getElementById('ss-modal').classList.add('show');
+  document.getElementById('ss-spin').style.display='block';
+  document.getElementById('ss-img').style.display='none';
+  clearInterval(_ssInt);_doSS();
+  _ssInt=setInterval(_doSS,3000);
+}
+
+function _doSS(){
+  if(_ssBusy||!_ssDev)return;_ssBusy=true;
+  fetch('/screenshot/'+_ssDev).then(function(r){return r.json();}).then(function(d){
+    _ssBusy=false;if(d.error)return;
+    var img=document.getElementById('ss-img'),ts=document.getElementById('ss-ts');
+    if(ts)ts.textContent='Updated '+new Date().toLocaleTimeString();
+    img.onload=function(){document.getElementById('ss-spin').style.display='none';img.style.display='block';};
+    img.src=d.image;
+  }).catch(function(){_ssBusy=false;});
+}
+
+function closeSS(){
+  clearInterval(_ssInt);_ssInt=null;_ssDev=null;_ssBusy=false;
+  document.getElementById('ss-modal').classList.remove('show');
+  document.getElementById('ss-img').style.display='none';
+  document.getElementById('ss-spin').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════════
+// WIKIPEDIA
+// ═══════════════════════════════════════════════════════════
+
+function wikiQ(q){document.getElementById('wiki-q').value=q;wikiSearch();}
+
+function wikiSearch(){
+  var q=document.getElementById('wiki-q').value.trim();if(!q)return;
+  document.getElementById('wiki-loading').classList.add('show');
+  document.getElementById('wiki-result').classList.remove('show');
+  document.getElementById('wiki-empty').style.display='none';
+  fetch('/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:'wikipedia '+q})})
+  .then(function(r){return r.json();}).then(function(d){
+    document.getElementById('wiki-loading').classList.remove('show');
+    var txt=d.result;
+    var titleM=txt.match(/TITLE:(.+)/);
+    var summM=txt.match(/SUMMARY:(.+?)(?=\nURL:|$)/s);
+    var urlM=txt.match(/URL:(https?:\/\/\S+)/);
+    var catsM=txt.match(/CATS:(.+)/);
+    if(titleM&&summM){
+      document.getElementById('wiki-title').textContent=titleM[1].trim();
+      document.getElementById('wiki-body').textContent=summM[1].trim();
+      if(urlM){
+        var urlEl=document.getElementById('wiki-url');
+        urlEl.href=urlM[1].trim();urlEl.style.display='inline-flex';
+      }
+      document.getElementById('wiki-cats').textContent=catsM?catsM[1].trim():'';
+      document.getElementById('wiki-result').classList.add('show');
+    } else {
+      document.getElementById('wiki-title').textContent=q;
+      document.getElementById('wiki-body').textContent=txt;
+      document.getElementById('wiki-url').style.display='none';
+      document.getElementById('wiki-cats').textContent='';
+      document.getElementById('wiki-result').classList.add('show');
+    }
+  }).catch(function(){
+    document.getElementById('wiki-loading').classList.remove('show');
+    document.getElementById('wiki-empty').style.display='block';
+    toast('Wikipedia request failed','err');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════════════════
+
+function addNoteUI(){
+  var t=document.getElementById('note-txt').value.trim();if(!t)return;
+  fetch('/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})
+  .then(function(){document.getElementById('note-txt').value='';loadNotes();toast('Note saved!','ok');});
+}
+
+function loadNotes(){
+  fetch('/notes').then(function(r){return r.json();}).then(function(data){
+    var c=document.getElementById('notes-list');
+    if(!data.length){c.innerHTML='<div style="color:var(--text3);padding:40px;text-align:center;font-size:13px">No notes yet. Add one above or say "save note: ..."</div>';return;}
+    var borders=['#343746','#2d303d','#383b4a','#262833','#3e4252'];
+    c.innerHTML=[...data].reverse().map(function(n,i){
+      return '<div class="note-card" style="border-color:'+borders[i%borders.length]+'"><div class="note-text">'+escHtml(n.text)+'</div><div class="note-time">'+n.time+'</div><button class="note-del" onclick="deleteNote('+n.id+')"><i class="fa fa-xmark"></i></button></div>';
+    }).join('');
+  });
+}
+
+function deleteNote(id){fetch('/notes/'+id,{method:'DELETE'}).then(function(){loadNotes();toast('Note deleted','info');});}
+
+function loadAnalytics(){
+  fetch('/analytics').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('an-total').textContent=d.total_hours||0;
+    document.getElementById('an-sessions').textContent=d.sessions.length;
+    var streak=0,prev=null;
+    var dates=[...new Set(d.sessions.map(function(s){return s.date;}))].sort().reverse();
+    dates.forEach(function(dt){if(!prev){prev=dt;streak=1;}else{if((new Date(prev)-new Date(dt))/86400000<=1.5){streak++;prev=dt;}}});
+    document.getElementById('an-streak').textContent=streak;
+    var last7=[],today=new Date();
+    for(var i=6;i>=0;i--){var d2=new Date(today);d2.setDate(d2.getDate()-i);last7.push(d2.toISOString().split('T')[0]);}
+    var byDate={};d.sessions.forEach(function(s){byDate[s.date]=(byDate[s.date]||0)+s.hours;});
+    var maxH=Math.max(1,...last7.map(function(dt){return byDate[dt]||0;}));
+    var dy=['S','M','T','W','T','F','S'];
+    document.getElementById('an-chart').innerHTML=last7.map(function(dt){
+      var h=byDate[dt]||0,pct=Math.round((h/maxH)*100);
+      return '<div class="chart-bar-wrap"><div class="chart-val">'+(h>0?h+'h':'')+'</div><div style="flex:1;width:100%;display:flex;align-items:flex-end"><div class="chart-bar" style="height:'+(Math.max(pct,3))+'%"></div></div></div>';
+    }).join('');
+    document.getElementById('an-labels').innerHTML=last7.map(function(dt){
+      return '<div class="chart-day" style="flex:1">'+dy[new Date(dt).getDay()]+'</div>';
+    }).join('');
+    var list=document.getElementById('an-list');
+    if(!d.sessions.length){list.innerHTML='<div style="color:var(--text3);padding:20px;font-size:13px">No sessions yet.</div>';return;}
+    list.innerHTML=[...d.sessions].reverse().slice(0,20).map(function(s){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:var(--r);margin-bottom:4px;background:var(--s2)"><span style="font-size:13px;color:var(--text2)">'+s.date+' at '+s.time+'</span><span style="font-size:11px;color:var(--silver);background:var(--s3);padding:3px 10px;border-radius:20px;border:1px solid var(--border2)">'+s.hours+'h · '+s.device+'</span></div>';
+    }).join('');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════════
+
+function loadHistory(){
+  fetch('/history').then(function(r){return r.json();}).then(function(data){
+    var c=document.getElementById('hist-list');
+    if(!data.length){c.innerHTML='<div style="color:var(--text3);padding:20px;font-size:13px">No commands yet.</div>';return;}
+    c.innerHTML=[...data].reverse().map(function(x){
+      return '<div class="hist-item" onclick="sendCmd('+JSON.stringify(x.cmd)+')"><span class="hist-cmd">'+escHtml(x.cmd)+'</span><span class="hist-time">'+x.time+'</span></div>';
+    }).join('');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// REMINDERS
+// ═══════════════════════════════════════════════════════════
+
+function setStudyR(){var t=document.getElementById('sr-txt').value.trim()||'Take a break';var m=document.getElementById('sr-min').value||30;sendCmd('remind me in '+m+' minutes '+t);document.getElementById('sr-txt').value='';}
+
+function quickReminder(m,t){sendCmd('remind me in '+m+' minutes '+t);}
+
+function setReminderP(){var t=document.getElementById('rr-txt').value.trim()||'Reminder!';var m=document.getElementById('rr-min').value||30;sendCmd('remind me in '+m+' minutes '+t);document.getElementById('rr-txt').value='';setTimeout(loadReminders,800);}
+
+function loadReminders(){
+  fetch('/reminders').then(function(r){return r.json();}).then(function(data){
+    var c=document.getElementById('rem-list');
+    if(!data.length){c.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px">No active reminders.</div>';return;}
+    c.innerHTML=data.map(function(r){return '<div class="rem-item"><div class="rem-text"><i class="fa fa-bell" style="color:var(--yellow);margin-right:10px;font-size:12px"></i>'+escHtml(r.text)+'</div><span class="rem-badge">'+r.time+'</span></div>';}).join('');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// POMODORO
+// ═══════════════════════════════════════════════════════════
+
+function setPomoMode(w,b){pomoWork=w;pomoBreak=b;pomoReset();toast('Pomodoro: '+w+'m work / '+b+'m break','info');}
+
+function pomoReset(){
+  clearInterval(pomoInterval);pomoRunning=false;pomoIsWork=true;pomoSecs=pomoWork*60;
+  updatePomoDisplay();
+  var btn=document.getElementById('pomo-btn');btn.innerHTML='<i class="fa fa-play"></i> Start';btn.className='btn btn-primary';
+  document.getElementById('pomo-label').textContent='Focus';
+  document.getElementById('pomo-fill').style.strokeDashoffset=0;
+  document.getElementById('pomo-fill').style.stroke='var(--accent)';
+}
+
+function pomoToggle(){
+  if(pomoRunning){
+    clearInterval(pomoInterval);pomoRunning=false;
+    var btn=document.getElementById('pomo-btn');btn.innerHTML='<i class="fa fa-play"></i> Resume';btn.className='btn btn-green';
+  } else {
+    pomoRunning=true;
+    var btn=document.getElementById('pomo-btn');btn.innerHTML='<i class="fa fa-pause"></i> Pause';btn.className='btn btn-primary';
+    pomoInterval=setInterval(function(){
+      pomoSecs--;updatePomoDisplay();
+      if(pomoSecs<=0){
+        clearInterval(pomoInterval);pomoRunning=false;
+        if(pomoIsWork){
+          pomoSessionCount++;document.getElementById('pomo-sessions').textContent=pomoSessionCount;
+          toast('Focus done! Take a '+pomoBreak+'m break.','ok');
+          speak('Focus session complete! Take a '+pomoBreak+' minute break.');
+          pomoIsWork=false;pomoSecs=pomoBreak*60;
+          document.getElementById('pomo-label').textContent='Break';
+          document.getElementById('pomo-fill').style.stroke='var(--green)';
+          setTimeout(openReflection, 1500);
+        } else {
+          toast('Break over! Start next session?','info');
+          speak('Break is over. Ready for next session!');
+          pomoIsWork=true;pomoSecs=pomoWork*60;
+          document.getElementById('pomo-label').textContent='Focus';
+          document.getElementById('pomo-fill').style.stroke='var(--accent)';
+        }
+        updatePomoDisplay();
+        document.getElementById('pomo-btn').innerHTML='<i class="fa fa-play"></i> Start';
+        document.getElementById('pomo-btn').className='btn btn-primary';
+      }
+    },1000);
+  }
+}
+
+function updatePomoDisplay(){
+  var total=(pomoIsWork?pomoWork:pomoBreak)*60;
+  var m=Math.floor(pomoSecs/60),s=pomoSecs%60;
+  document.getElementById('pomo-time').textContent=pad(m)+':'+pad(s);
+  document.getElementById('pomo-fill').style.strokeDashoffset=PCIRC*(1-pomoSecs/total);
+}
+
+// ═══════════════════════════════════════════════════════════
+// UNIVERSAL CLIPBOARD SYNC (BIDIRECTIONAL & IOS SAFE)
+// ═══════════════════════════════════════════════════════════
+
+function copyTextToDeviceClipboard(txt, successMsg){
+  if(!txt) return;
+  if(navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){
+      toast(successMsg || 'Copied to device clipboard!','ok');
+    }).catch(function(){
+      fallbackCopyMethod(txt, successMsg);
+    });
+    return;
+  }
+  fallbackCopyMethod(txt, successMsg);
+}
+
+function fallbackCopyMethod(txt, successMsg){
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    ta.setAttribute('readonly', '');
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, 99999); // for iOS Safari
+    var success = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(success){
+      toast(successMsg || 'Copied to device clipboard!','ok');
+      return;
+    }
+  } catch(e){}
+  window.prompt('Copy text below (Cmd+C / Tap & Hold):', txt);
+}
+
+function fetchClipboardUI(){
+  fetch('/clipboard').then(function(r){return r.json();}).then(function(d){
+    var txt = d.text || '';
+    var dEl = document.getElementById('dash-clip-box');
+    var fEl = document.getElementById('full-clip-box');
+    var display = txt || 'Laptop clipboard is empty';
+    if(dEl) dEl.textContent = display;
+    if(fEl) fEl.textContent = display;
+  }).catch(function(){});
+}
+
+function copyLaptopClipboardToDevice(){
+  var fEl = document.getElementById('full-clip-box');
+  var dEl = document.getElementById('dash-clip-box');
+  var txt = '';
+  if(fEl && fEl.textContent && fEl.textContent !== 'Laptop clipboard is empty' && fEl.textContent !== 'Loading laptop clipboard...'){
+    txt = fEl.textContent;
+  } else if(dEl && dEl.textContent && dEl.textContent !== 'Laptop clipboard is empty' && dEl.textContent !== 'Loading clipboard...'){
+    txt = dEl.textContent;
+  }
+  if(!txt){
+    toast('Nothing on laptop clipboard to copy','err');
+    return;
+  }
+  copyTextToDeviceClipboard(txt, 'Copied laptop clipboard to iPad / device!');
+}
+
+function sendClipboardToLaptop(){
+  var inp = document.getElementById('dash-clip-in');
+  var txt = inp ? inp.value.trim() : '';
+  if(!txt){
+    toast('Enter text to send to laptop','err');
+    return;
+  }
+  _sendClipText(txt, inp);
+}
+
+function sendFullClipboardToLaptop(){
+  var inp = document.getElementById('full-clip-in');
+  var txt = inp ? inp.value.trim() : '';
+  if(!txt){
+    toast('Enter text to send to laptop','err');
+    return;
+  }
+  _sendClipText(txt, inp);
+}
+
+function _sendClipText(txt, clearInputEl){
+  fetch('/clipboard', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: txt})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(clearInputEl) clearInputEl.value = '';
+    fetchClipboardUI();
+    toast('Copied to Laptop clipboard!','ok');
+  }).catch(function(){
+    toast('Failed to set laptop clipboard','err');
+  });
+}
+
+function clearLaptopClipboard(){
+  fetch('/clipboard', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: ''})
+  }).then(function(){
+    fetchClipboardUI();
+    toast('Laptop clipboard cleared!','info');
+  }).catch(function(){
+    toast('Failed to clear clipboard','err');
+  });
+}
+
+function pasteDeviceToInput(inputId){
+  var inp = document.getElementById(inputId);
+  if(!inp) return;
+  inp.focus();
+  if(navigator.clipboard && navigator.clipboard.readText){
+    navigator.clipboard.readText().then(function(t){
+      if(t){ inp.value = t; toast('Pasted from device clipboard!','ok'); }
+    }).catch(function(){
+      toast('Tap inside box & select Paste','info');
+    });
+  } else {
+    toast('Tap inside box & select Paste','info');
+  }
+}
+
+function selectClipBox(elId){
+  var el = document.getElementById(elId);
+  if(!el) return;
+  var range = document.createRange();
+  range.selectNodeContents(el);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  toast('Text selected — tap Copy','info');
+}
+
+function quickSendClip(txt){
+  _sendClipText(txt);
+  copyTextToDeviceClipboard(txt, 'Copied ' + txt + ' to Laptop & iPad!');
+}
+
+// ═══════════════════════════════════════════════════════════
+// VISUAL PROBLEM SOLVER
+// ═══════════════════════════════════════════════════════════
+
+function renderSimpleMarkdown(md){
+  if(!md) return '';
+  return md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```([\s\S]*?)```/g, '<pre style="background:var(--s1);padding:10px;border-radius:6px;overflow-x:auto;margin:8px 0;border:1px solid var(--border2)"><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '<code style="background:var(--s3);padding:2px 5px;border-radius:4px;color:var(--accent)">$1</code>')
+    .replace(/^### (.*$)/gim, '<h4 style="color:var(--accent);margin:14px 0 6px 0;font-size:14px">$1</h4>')
+    .replace(/^## (.*$)/gim, '<h3 style="color:var(--text);margin:16px 0 8px 0;font-size:15px;font-weight:700">$1</h3>')
+    .replace(/^# (.*$)/gim, '<h2 style="color:var(--text);margin:18px 0 10px 0;font-size:16px;font-weight:700">$1</h2>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^\s*[-*]\s+(.*$)/gim, '<li style="margin-left:18px">$1</li>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+function solveScreenProblemUI(){
+  stopSpeaking();
+  var modal = document.getElementById('solver-modal');
+  var spin = document.getElementById('solver-spin');
+  var spinTxt = document.getElementById('solver-spin-txt');
+  var content = document.getElementById('solver-content');
+  var photoWrap = document.getElementById('solver-photo-wrap');
+  if(photoWrap) photoWrap.style.display = 'none';
+  modal.classList.add('show');
+  if(spinTxt) spinTxt.textContent = 'Capturing screen & analyzing with Gemini AI...';
+  spin.style.display = 'block';
+  content.style.display = 'none';
+
+  fetch('/study/solve_screen', {method: 'POST'})
+  .then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(d){
+    spin.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = renderSimpleMarkdown(d.result || 'No question or problem identified on screen.');
+    toast('Problem analyzed by Gemini AI!','ok');
+  }).catch(function(err){
+    spin.style.display = 'none';
+    content.style.display = 'block';
+    content.innerHTML = 'Screen problem solving error: ' + err.message;
+    toast('Screen solver error','err');
+  });
+}
+
+function closeSolver(){
+  document.getElementById('solver-modal').classList.remove('show');
+  var photoWrap = document.getElementById('solver-photo-wrap');
+  var photoImg = document.getElementById('solver-photo-img');
+  if(photoWrap) photoWrap.style.display = 'none';
+  if(photoImg) photoImg.src = '';
+}
+
+function triggerPhotoSolve(){
+  var inp = document.getElementById('book-photo-input');
+  if(inp) inp.click();
+}
+
+function compressImageForAI(file, maxDim, quality, callback){
+  var called = false;
+
+function done(res){
+    if(!called){
+      called = true;
+      callback(res);
+    }
+  }
+
+  // Fallback timeout: if image decoding stalls (e.g. iOS Safari HEIC), proceed with raw data
+  var overallTimeout = setTimeout(function(){
+    console.warn('Image processing timeout reached, falling back to direct reader output');
+  }, 2200);
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var rawData = e.target.result;
+    clearTimeout(overallTimeout);
+
+    // If file is already reasonably sized (< 1.5MB) and not HEIC, send immediately
+    if(file.size && file.size < 1500000 && !file.type.includes('heic')){
+      done(rawData);
+      return;
+    }
+
+    var img = new Image();
+    var imgTimeout = setTimeout(function(){
+      done(rawData);
+    }, 1800);
+
+    img.onload = function(){
+      clearTimeout(imgTimeout);
+      try {
+        var w = img.width;
+        var h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var compressed = canvas.toDataURL('image/jpeg', quality || 0.85);
+        done(compressed);
+      } catch(err){
+        console.warn('Canvas compression error:', err);
+        done(rawData);
+      }
+    };
+    img.onerror = function(){
+      clearTimeout(imgTimeout);
+      done(rawData);
+    };
+    img.src = rawData;
+  };
+  reader.onerror = function(){
+    clearTimeout(overallTimeout);
+    done('');
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadAndSolvePhoto(input){
+  if(!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var modal = document.getElementById('solver-modal');
+  var spin = document.getElementById('solver-spin');
+  var spinTxt = document.getElementById('solver-spin-txt');
+  var content = document.getElementById('solver-content');
+  var photoWrap = document.getElementById('solver-photo-wrap');
+  var photoImg = document.getElementById('solver-photo-img');
+
+  modal.classList.add('show');
+  if(spinTxt) spinTxt.textContent = 'Optimizing question photo for Gemini AI...';
+  spin.style.display = 'block';
+  content.style.display = 'none';
+
+  compressImageForAI(file, 1200, 0.85, function(optimizedBase64){
+    if(!optimizedBase64){
+      spin.style.display = 'none';
+      content.style.display = 'block';
+      content.innerHTML = '⚠️ Could not read image from camera or photo library. Please try again.';
+      toast('Photo read error', 'err');
+      return;
+    }
+    if(photoImg && photoWrap){
+      photoImg.src = optimizedBase64;
+      photoWrap.style.display = 'block';
+    }
+    if(spinTxt) spinTxt.textContent = 'Analyzing problem with Gemini Vision & calculating step-by-step solution...';
+
+    var controller = new AbortController();
+    var fetchTimeout = setTimeout(function(){ controller.abort(); }, 40000);
+
+    fetch('/study/solve_photo', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({image_data: optimizedBase64}),
+      signal: controller.signal
+    })
+    .then(function(r){
+      clearTimeout(fetchTimeout);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(d){
+      spin.style.display = 'none';
+      content.style.display = 'block';
+      content.innerHTML = renderSimpleMarkdown(d.result || 'No solution generated.');
+      toast('Question solved by Gemini AI!','ok');
+    })
+    .catch(function(err){
+      clearTimeout(fetchTimeout);
+      spin.style.display = 'none';
+      content.style.display = 'block';
+      if(err.name === 'AbortError'){
+        content.innerHTML = '⏱️ Gemini AI analysis took longer than 40 seconds. Please try taking a closer, clearer photo of the specific question.';
+      } else {
+        content.innerHTML = 'Photo solving error: ' + err.message + '. Please check your connection to Jarvis.';
+      }
+      toast('Photo solver error','err');
+    });
+  });
+  input.value = '';
+}
+
+function copySolverResult(){
+  var content = document.getElementById('solver-content');
+  var txt = content ? (content.innerText || content.textContent) : '';
+  if(txt){
+    copyTextToDeviceClipboard(txt, 'Solution copied to device clipboard!');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FOCUS GUARD & WORKSPACE CONTROL
+// ═══════════════════════════════════════════════════════════
+
+function checkFocusDistractionUI(){
+  stopSpeaking();
+  toast('Checking screen for distractions...','info');
+  fetch('/study/distraction_check', {method: 'POST'})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    toast(d.result,'ok');
+    var out=document.getElementById('jresp');
+    if(out){out.textContent='▸ '+d.result;speak(d.result);}
+  }).catch(function(){
+    toast('Focus check failed','err');
+  });
+}
+
+function snapStudyWindowsUI(){
+  stopSpeaking();
+  toast('Snapping study windows...','info');
+  fetch('/study/snap_windows', {method: 'POST'})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    toast(d.result,'ok');
+    var out=document.getElementById('jresp');
+    if(out){out.textContent='▸ '+d.result;speak(d.result);}
+  }).catch(function(){
+    toast('Window snap error','err');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACTIVE RECALL FLASHCARDS
+// ═══════════════════════════════════════════════════════════
+var _flashcards = [];
+var _fcIdx = 0;
+var _fcFlipped = false;
+
+function generateFlashcardsUI(){
+  var inp = document.getElementById('fc-topic-in');
+  var topic = inp ? inp.value.trim() : '';
+  if(!topic) topic = 'General Science';
+  quickFlashcards(topic);
+}
+
+function quickFlashcards(topic){
+  stopSpeaking();
+  document.getElementById('fc-topic-in').value = topic;
+  document.getElementById('fc-q-txt').textContent = 'Generating 5 active-recall flashcards on ' + topic + '...';
+  document.getElementById('fc-a-txt').textContent = '';
+  document.getElementById('fc-counter').textContent = 'Generating...';
+  _fcFlipped = false;
+  document.getElementById('fc-card-el').classList.remove('flipped');
+
+  fetch('/study/flashcards', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({topic: topic})
+  }).then(function(r){return r.json();}).then(function(d){
+    _flashcards = Array.isArray(d.flashcards) ? d.flashcards : [];
+    _fcIdx = 0;
+    renderCurrentCard();
+    toast('5 Flashcards ready for ' + topic,'ok');
+  }).catch(function(){
+    document.getElementById('fc-q-txt').textContent = 'Flashcard generation failed.';
+    toast('Flashcard error','err');
+  });
+}
+
+function renderCurrentCard(){
+  if(!_flashcards || !_flashcards.length){
+    document.getElementById('fc-q-txt').textContent = 'No flashcards available.';
+    document.getElementById('fc-a-txt').textContent = '';
+    document.getElementById('fc-counter').textContent = 'Card 0 of 0';
+    return;
+  }
+  var c = _flashcards[_fcIdx];
+  document.getElementById('fc-q-txt').textContent = c.q || 'Question?';
+  document.getElementById('fc-a-txt').textContent = c.a || 'Answer.';
+  document.getElementById('fc-counter').textContent = 'Card ' + (_fcIdx + 1) + ' of ' + _flashcards.length;
+  _fcFlipped = false;
+  document.getElementById('fc-card-el').classList.remove('flipped');
+}
+
+function flipCard(){
+  _fcFlipped = !_fcFlipped;
+  document.getElementById('fc-card-el').classList.toggle('flipped', _fcFlipped);
+}
+
+function nextCard(){
+  if(!_flashcards.length) return;
+  _fcIdx = (_fcIdx + 1) % _flashcards.length;
+  renderCurrentCard();
+}
+
+function prevCard(){
+  if(!_flashcards.length) return;
+  _fcIdx = (_fcIdx - 1 + _flashcards.length) % _flashcards.length;
+  renderCurrentCard();
+}
+
+// ═══════════════════════════════════════════════════════════
+// FULL DIAGNOSTICS & NETWORK DEVICES
+// ═══════════════════════════════════════════════════════════
+
+function runDiagnosticsUI(){
+  document.getElementById('diag-net-st').textContent = 'Auditing...';
+  document.getElementById('diag-lap-st').textContent = 'Auditing...';
+  document.getElementById('diag-pc-st').textContent = 'Auditing...';
+  document.getElementById('diag-ac-st').textContent = 'Auditing...';
+  document.getElementById('diag-ai-st').textContent = 'Auditing...';
+
+  fetch('/diagnostics').then(function(r){return r.json();}).then(function(d){
+    var net = d.internet || {};
+    document.getElementById('diag-net-st').textContent = net.status || 'Unknown';
+    document.getElementById('diag-net-st').style.color = net.status === 'Online' ? 'var(--green)' : 'var(--red)';
+    document.getElementById('diag-net-lat').textContent = 'Latency: ' + (net.latency || '--');
+
+    var lap = d.laptop || {};
+    var bat = d.battery || {};
+    document.getElementById('diag-lap-st').textContent = 'CPU ' + (lap.cpu || '--') + '% · RAM ' + (lap.ram || '--') + '%';
+    document.getElementById('diag-lap-sub').textContent = 'Battery: ' + (bat.percent >= 0 ? bat.percent + '%' : 'N/A') + ' · Disk: ' + (lap.disk || '--') + '%';
+
+    var pc = d.pc || {};
+    document.getElementById('diag-pc-st').textContent = pc.online ? 'Online (SSH OK)' : 'Offline';
+    document.getElementById('diag-pc-st').style.color = pc.online ? 'var(--green)' : 'var(--red)';
+
+    var ac = d.ac || {};
+    document.getElementById('diag-ac-st').textContent = ac.connected ? 'Connected' : 'Disconnected';
+    document.getElementById('diag-ac-st').style.color = ac.connected ? 'var(--green)' : 'var(--yellow)';
+    document.getElementById('diag-ac-sub').textContent = 'State: ' + (ac.state ? ac.state.power + ' · ' + ac.state.temp + '°C' : '--');
+
+    var ai = d.ai || {};
+    document.getElementById('diag-ai-st').textContent = 'Online (Flash)';
+    document.getElementById('diag-ai-lat').textContent = 'API Latency: ' + (ai.latency || '--');
+
+    toast('Diagnostics audit complete!','ok');
+  }).catch(function(){
+    toast('Diagnostics scan failed','err');
+  });
+}
+
+function fetchNetworkDevicesUI(){
+  var list = document.getElementById('device-list');
+  if(list) list.innerHTML = '<div style="color:var(--text3);padding:14px;font-size:12px">Scanning subnet...</div>';
+
+  fetch('/network/devices').then(function(r){return r.json();}).then(function(devs){
+    if(!list) return;
+    if(!devs || !devs.length){
+      list.innerHTML = '<div style="color:var(--text3);padding:14px;font-size:12px">No active devices found in ARP table.</div>';
+      return;
+    }
+    list.innerHTML = devs.map(function(d){
+      return '<div class="device-row">' +
+             '<div><div style="font-weight:600;color:var(--text)">' + escHtml(d.name) + '</div>' +
+             '<div style="font-size:10px;color:var(--text3)">' + escHtml(d.ip) + '</div></div>' +
+             '<div style="font-family:monospace;color:var(--accent);font-size:11px">' + escHtml(d.mac) + '</div>' +
+             '</div>';
+    }).join('');
+    toast('Found ' + devs.length + ' network devices','ok');
+  }).catch(function(){
+    if(list) list.innerHTML = '<div style="color:var(--red);padding:14px;font-size:12px">Failed to read ARP table.</div>';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// STUDY REFLECTION
+// ═══════════════════════════════════════════════════════════
+
+function openReflection(){
+  document.getElementById('reflection-modal').classList.add('show');
+}
+
+function closeReflection(){
+  document.getElementById('reflection-modal').classList.remove('show');
+}
+
+function setReflSub(el, sub){
+  document.getElementById('refl-sub-val').value = sub;
+  var chips = document.querySelectorAll('#refl-chips .chip');
+  chips.forEach(function(c){c.style.borderColor = 'var(--border2)';c.style.color = 'var(--text2)';});
+  el.style.borderColor = 'var(--accent)';
+  el.style.color = 'var(--accent)';
+}
+
+function saveReflectionUI(){
+  var sub = document.getElementById('refl-sub-val').value || 'Physics';
+  var hrs = parseFloat(document.getElementById('refl-hours').value || '0.5');
+  var notes = document.getElementById('refl-notes').value.trim();
+
+  fetch('/study/session_log', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      hours: hrs,
+      device: 'laptop',
+      subject: sub,
+      notes: notes
+    })
+  }).then(function(r){return r.json();}).then(function(){
+    closeReflection();
+    loadAnalytics();
+    toast('Logged ' + hrs + 'h of ' + sub + ' to analytics!','ok');
+    speak('Session saved. Great job with ' + sub + '!');
+  }).catch(function(){
+    toast('Failed to save reflection','err');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// YOUTUBE MEDIA & STUDY SEARCH
+// ═══════════════════════════════════════════════════════════
+
+function playYoutubeUI(device){
+  var inp = document.getElementById('yt-query-in');
+  var q = inp ? inp.value.trim() : '';
+  if(!q){ toast('Enter a search term for YouTube','warn'); return; }
+  quickPlayYT(q, device);
+}
+
+function hideYoutubePlayer(){
+  var box = document.getElementById('yt-player-box');
+  var iframe = document.getElementById('yt-iframe');
+  if(box) box.style.display = 'none';
+  if(iframe) iframe.src = '';
+  var badge = document.getElementById('yt-status-badge');
+  if(badge) badge.style.display = 'none';
+}
+
+function quickPlayYT(query, device){
+  device = device || 'laptop';
+  var devLabel = device === 'pc' ? 'PC' : (device === 'device' ? 'This Device' : 'Laptop');
+  toast('Searching & launching on ' + devLabel + '...','info');
+
+  var statusBadge = document.getElementById('yt-status-badge');
+  if(statusBadge){
+    statusBadge.innerText = 'Searching...';
+    statusBadge.style.display = 'inline-block';
+  }
+
+  fetch('/youtube/play', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({query: query, device: device})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var msg = d.result || 'Playing YouTube video';
+    toast(msg,'ok');
+
+    var pBox = document.getElementById('yt-player-box');
+    var pIframe = document.getElementById('yt-iframe');
+    var pTitle = document.getElementById('yt-now-playing');
+    var pPill = document.getElementById('yt-target-pill');
+    var pLink = document.getElementById('yt-open-link');
+
+    if(pBox && d.video_id){
+      pBox.style.display = 'block';
+      pIframe.src = 'https://www.youtube.com/embed/' + encodeURIComponent(d.video_id) + '?autoplay=1&enablejsapi=1&rel=0';
+      if(pTitle) pTitle.innerText = '▶️ ' + (d.query || query);
+      if(pPill) {
+        pPill.innerText = device === 'device' ? 'Playing on This Device' : (device === 'pc' ? 'Sent to PC' : 'Playing on Laptop + Embedded');
+        pPill.style.background = device === 'device' ? 'rgba(14,165,233,.2)' : 'rgba(34,197,94,.2)';
+        pPill.style.color = device === 'device' ? '#38bdf8' : '#4ade80';
+      }
+      if(pLink && d.url) pLink.href = d.url;
+      if(statusBadge){
+        statusBadge.innerText = 'Active: ' + (d.query || query).substring(0, 24);
+        statusBadge.style.display = 'inline-block';
+      }
+    }
+
+    var out=document.getElementById('jresp');
+    if(out){
+      var html = '▸ ' + escHtml(msg);
+      if(d.url){
+        html += ' <a href="' + escHtml(d.url) + '" target="_blank" class="btn btn-primary btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px;display:inline-flex;align-items:center;gap:5px"><i class="fa-brands fa-youtube" style="color:#ff0000"></i> Open Video</a>';
+      }
+      out.innerHTML = html;
+    }
+    speak(msg);
+  })
+  .catch(function(err){
+    toast('Failed to launch YouTube video','err');
+    if(statusBadge) statusBadge.style.display = 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOCAL STUDY MATERIAL & FILE SEARCH
+// ═══════════════════════════════════════════════════════════
+var _fileSearchTimer = null;
+
+function debounceFileSearch(){
+  if(_fileSearchTimer) clearTimeout(_fileSearchTimer);
+  _fileSearchTimer = setTimeout(function(){
+    searchFilesUI();
+  }, 400);
+}
+
+function filterFilesQuick(ext){
+  var inp = document.getElementById('file-search-in');
+  if(inp) inp.value = ext;
+  searchFilesUI();
+}
+
+function searchFilesUI(){
+  var inp = document.getElementById('file-search-in');
+  var q = inp ? inp.value.trim() : '';
+  var list = document.getElementById('file-results-list');
+  var header = document.getElementById('file-results-header');
+  if(list) list.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center"><i class="fa fa-spinner fa-spin" style="margin-right:8px"></i>Searching study materials...</div>';
+
+  fetch('/files/search?q=' + encodeURIComponent(q))
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var files = d.files || [];
+    if(header) header.innerHTML = '<i class="fa fa-folder-tree"></i>Indexed Files (' + files.length + ' found)';
+    if(!files.length){
+      list.innerHTML = '<div style="color:var(--text3);padding:24px;text-align:center">No files found matching "' + escHtml(q) + '". Try searching for "notes", "pdf", or "assignment".</div>';
+      return;
+    }
+    list.innerHTML = files.map(function(f){
+      var icon = 'fa-file';
+      if(f.ext === '.pdf') icon = 'fa-file-pdf" style="color:#ef4444';
+      else if(f.ext === '.py') icon = 'fa-file-code" style="color:#22c55e';
+      else if(f.ext === '.docx' || f.ext === '.doc') icon = 'fa-file-word" style="color:#3b82f6';
+      else if(f.ext === '.pptx' || f.ext === '.ppt') icon = 'fa-file-powerpoint" style="color:#f97316';
+      else if(f.ext === '.txt' || f.ext === '.md') icon = 'fa-file-lines" style="color:#a855f7';
+      else if(['.png','.jpg','.jpeg'].includes(f.ext)) icon = 'fa-file-image" style="color:#00d4ff';
+
+      return '<div class="device-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px">' +
+        '<div style="display:flex;align-items:center;gap:12px;overflow:hidden;flex:1">' +
+          '<i class="fa ' + icon + '" style="font-size:18px;flex-shrink:0"></i>' +
+          '<div style="overflow:hidden">' +
+            '<div style="font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(f.name) + '">' + escHtml(f.name) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(f.folder) + ' · ' + escHtml(f.size) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFileUI(\'' + encodeURIComponent(f.path) + '\')"><i class="fa fa-arrow-up-right-from-square"></i> Open</button>' +
+      '</div>';
+    }).join('');
+  })
+  .catch(function(){
+    if(list) list.innerHTML = '<div style="color:var(--red);padding:18px;text-align:center">Error searching files.</div>';
+  });
+}
+
+function openFileUI(encodedPath){
+  var rawPath = decodeURIComponent(encodedPath);
+  toast('Opening ' + rawPath.split(/[\\\\/]/).pop() + ' on laptop...','info');
+  fetch('/files/open', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({path: rawPath})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    toast(d.result || 'File opened','ok');
+  })
+  .catch(function(){
+    toast('Failed to open file','err');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZORIN LINUX PC REMOTE TERMINAL
+// ═══════════════════════════════════════════════════════════
+
+function clearPCTerminal(){
+  var box = document.getElementById('pc-term-box');
+  if(box) box.textContent = 'jay@zorin:~$ ';
+}
+
+function quickPCTerm(cmd){
+  var inp = document.getElementById('pc-term-in');
+  if(inp) inp.value = cmd;
+  runPCTerminalUI();
+}
+
+function runPCTerminalUI(){
+  var inp = document.getElementById('pc-term-in');
+  var cmd = inp ? inp.value.trim() : '';
+  if(!cmd) return;
+  var box = document.getElementById('pc-term-box');
+  if(box){
+    box.textContent += '\njay@zorin:~$ ' + cmd + '\n[Executing...]';
+    box.scrollTop = box.scrollHeight;
+  }
+  inp.value = '';
+
+  fetch('/pc/terminal', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({command: cmd})
+  })
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(box){
+      var content = box.textContent.replace('\n[Executing...]', '');
+      var output = (d.stdout || '').trim();
+      var err = (d.stderr || '').trim();
+      var full = output;
+      if(err) full += (full ? '\n' : '') + '[STDERR]: ' + err;
+      if(!full) full = '[Done. Exit code ' + d.exit_code + ']';
+      box.textContent = content + '\n' + full + '\n';
+      box.scrollTop = box.scrollHeight;
+    }
+  })
+  .catch(function(){
+    if(box){
+      box.textContent = box.textContent.replace('\n[Executing...]', '\n[SSH Network Error / Timeout]\n');
+      box.scrollTop = box.scrollHeight;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// DAILY STUDY TARGETS & GOALS
+// ═══════════════════════════════════════════════════════════
+
+function loadGoalsUI(){
+  var list = document.getElementById('goals-list');
+  var badge = document.getElementById('goal-streak-badge');
+  fetch('/goals')
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var goals = d.goals || [];
+    var streak = d.streak || 0;
+    if(badge) badge.textContent = '🔥 ' + streak + ' Day Streak';
+    if(!list) return;
+    if(!goals.length){
+      list.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:12px">No goals set for today. Add a target above!</div>';
+      return;
+    }
+    list.innerHTML = goals.map(function(g){
+      var doneStyle = g.done ? 'text-decoration:line-through;color:var(--text3)' : 'color:var(--text);font-weight:500';
+      var checkIcon = g.done ? 'fa-square-check" style="color:var(--green)' : 'fa-square" style="color:var(--text3)';
+      return '<div class="device-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px">' +
+        '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1" onclick="toggleGoalUI(\'' + g.id + '\')">' +
+          '<i class="fa ' + checkIcon + '" style="font-size:16px"></i>' +
+          '<div>' +
+            '<span style="font-size:10px;background:var(--s4);padding:2px 6px;border-radius:6px;margin-right:6px;color:var(--accent);font-weight:600">' + escHtml(g.subject) + '</span>' +
+            '<span style="font-size:13px;' + doneStyle + '">' + escHtml(g.text) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-sm" style="padding:2px 8px" onclick="deleteGoalUI(\'' + g.id + '\')"><i class="fa fa-trash" style="color:var(--red);font-size:11px"></i></button>' +
+      '</div>';
+    }).join('');
+  })
+  .catch(function(){
+    if(list) list.innerHTML = '<div style="color:var(--red);font-size:12px;padding:12px;text-align:center">Error loading goals.</div>';
+  });
+}
+
+function addGoalUI(){
+  var subIn = document.getElementById('goal-sub-in');
+  var txtIn = document.getElementById('goal-txt-in');
+  var sub = subIn ? subIn.value : 'General Study';
+  var txt = txtIn ? txtIn.value.trim() : '';
+  if(!txt){ toast('Enter a study target!','warn'); return; }
+
+  fetch('/goals', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: txt, subject: sub})
+  })
+  .then(function(r){return r.json();})
+  .then(function(){
+    if(txtIn) txtIn.value = '';
+    loadGoalsUI();
+    toast('Goal added: ' + txt,'ok');
+  })
+  .catch(function(){
+    toast('Failed to add goal','err');
+  });
+}
+
+function toggleGoalUI(gid){
+  fetch('/goals/' + gid + '/toggle', {method: 'POST'})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    loadGoalsUI();
+    if(d.goal && d.goal.done){
+      toast('Target completed! Streak updated.','ok');
+      speak('Great job Heisenberg! Target achieved.');
+    }
+  });
+}
+
+function deleteGoalUI(gid){
+  fetch('/goals/' + gid, {method: 'DELETE'})
+  .then(function(r){return r.json();})
+  .then(function(){
+    loadGoalsUI();
+    toast('Goal deleted','info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// 3D CYBERNETIC ENGINE & CARD PHYSICS
+// ═══════════════════════════════════════════════════════════
+var isVisualizerActive = false;
+var visInterval = null;
+
+function setVisualizerActive(active){
+  isVisualizerActive = !!active;
+  var vis = document.getElementById('audio-vis-3d');
+  if(!vis) return;
+  var bars = vis.querySelectorAll('.vbar');
+  if(active){
+    vis.classList.add('active');
+    if(!visInterval){
+      visInterval = setInterval(function(){
+        bars.forEach(function(b){
+          var h = Math.floor(Math.random() * 26) + 6;
+          b.style.height = h + 'px';
+        });
+      }, 90);
+    }
+  } else {
+    vis.classList.remove('active');
+    if(visInterval){
+      clearInterval(visInterval);
+      visInterval = null;
+    }
+    bars.forEach(function(b){ b.style.height = '4px'; });
+  }
+}
+
+// 1. 3D Celestial Astrolabe Gyroscope & Tactical HUD Engine (Amber & Obsidian)
+
+
+// ═══════════════════════════════════════════════════════════
+// INITIALIZATION ON PAGE LOAD
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', function(){
+  try { loadGoalsUI(); } catch(e){}
+  try { loadNotes(); } catch(e){}
+  try { loadReminders(); } catch(e){}
+  try { fetchClipboardUI(); } catch(e){}
+  try { loadAnalytics(); } catch(e){}
+  try { updatePomoDisplay(); } catch(e){}
+});
+
+</script>
+</body>
+</html>
