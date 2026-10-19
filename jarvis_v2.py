@@ -55,9 +55,9 @@ CORS(app)
 
 # ---- CREDENTIALS (.env) ----
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
-PC_IP            = os.getenv("PC_IP", "192.168.1.10")
-LAPTOP_IP        = os.getenv("LAPTOP_IP", "192.168.1.6")
-PC_USER          = os.getenv("PC_USER", "jay")
+PC_IP            = os.getenv("PC_IP", "127.0.0.1")
+LAPTOP_IP        = os.getenv("LAPTOP_IP", "192.168.1.150")
+PC_USER          = os.getenv("PC_USER", "remote_user")
 PC_PASS          = os.getenv("PC_PASS", "")
 MIRAIE_MOBILE    = os.getenv("MIRAIE_MOBILE", "")
 MIRAIE_PASS      = os.getenv("MIRAIE_PASS", "")
@@ -362,11 +362,15 @@ def get_pc_stats():
     except: return {"cpu":"N/A","ram":"N/A","disk":"N/A","uptime":"N/A"}
 
 def get_laptop_stats():
-    drv = os.path.splitdrive(os.getcwd())[0] or "C:"
-    upt = str(datetime.timedelta(seconds=int(time.time()-psutil.boot_time())))
-    return {"cpu":f"{psutil.cpu_percent(interval=0.5):.0f}",
-            "ram":f"{psutil.virtual_memory().percent:.0f}",
-            "disk":f"{psutil.disk_usage(drv).percent:.0f}","uptime":upt}
+    try:
+        drv = os.path.splitdrive(os.getcwd())[0] if sys.platform == "win32" else "/"
+        if not drv: drv = "/" if sys.platform != "win32" else "C:"
+        upt = str(datetime.timedelta(seconds=int(time.time()-psutil.boot_time())))
+        return {"cpu":f"{psutil.cpu_percent(interval=0.5):.0f}",
+                "ram":f"{psutil.virtual_memory().percent:.0f}",
+                "disk":f"{psutil.disk_usage(drv).percent:.0f}","uptime":upt}
+    except Exception:
+        return {"cpu":"N/A","ram":"N/A","disk":"N/A","uptime":"N/A"}
 
 def get_battery():
     b = psutil.sensors_battery()
@@ -471,7 +475,7 @@ def open_url(url):
     """Open a URL in the user's active browser on Windows interactive desktop with automatic foreground focus."""
     if sys.platform != "win32":
         try:
-            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.6")
+            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.150")
             if http_req:
                 r = http_req.post(f"http://{laptop_ip}:5000/run", json={"command": f"open {url} on laptop"}, timeout=5)
                 return r.status_code == 200
@@ -532,7 +536,7 @@ def open_url(url):
 def run_laptop(args, shell=False):
     if sys.platform != "win32":
         try:
-            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.6")
+            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.150")
             if not http_req: return False
             if isinstance(args, list) and len(args) >= 3 and args[0] == "taskkill":
                 app_name = args[2].replace(".exe", "")
@@ -667,7 +671,7 @@ def execute_action(action, device, target=""):
 
     elif device == "laptop":
         if sys.platform != "win32":
-            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.6")
+            laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.150")
             try:
                 cmd_map = {
                     "close_app": f"close {t} on laptop",
@@ -1094,7 +1098,7 @@ def get_network_devices():
                 mac = parts[1]
                 kind = parts[2]
                 if mac != "ff-ff-ff-ff-ff-ff" and not ip.endswith(".255"):
-                    name = "Gateway/Router" if ip == "192.168.1.1" else ("Zorin PC" if ip == PC_IP else ("Your Laptop" if "192.168.1.6" in ip else "Home Device"))
+                    name = "Gateway/Router" if ip == "192.168.1.1" else ("Main PC" if ip == PC_IP else ("Companion Laptop" if ip == LAPTOP_IP else "Network Device"))
                     devices.append({"ip": ip, "mac": mac, "name": name, "type": kind})
     except Exception as e:
         print(f"[ARP SCAN ERR] {e}")
@@ -1595,39 +1599,35 @@ def wiki_search(q):
     q = q.strip()
     if not q:
         return "Please enter a search term."
-    wikipedia.set_lang("en")
+    headers = {"User-Agent": "JarvisAssistant/2.0 (contact: admin@local)"}
     try:
-        candidates = wikipedia.search(q, results=5, suggestion=True)
-        titles = candidates[0] if isinstance(candidates, tuple) else candidates
-        if not titles:
-            return f'No Wikipedia results for "{q}".'
-        last_err = ""
-        for title in titles:
-            try:
-                page = wikipedia.page(title, auto_suggest=False, redirect=True, preload=False)
-                raw = page.summary
-                sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', raw) if s.strip()]
-                summary = " ".join(sentences[:10])
-                cats = ", ".join(page.categories[:5]) if page.categories else "N/A"
-                return f"TITLE:{page.title}\nSUMMARY:{summary}\nURL:{page.url}\nCATS:{cats}"
-            except wikipedia.exceptions.DisambiguationError as e:
-                for opt in e.options[:5]:
-                    try:
-                        page = wikipedia.page(opt, auto_suggest=False, redirect=True)
-                        raw = page.summary
-                        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', raw) if s.strip()]
-                        summary = " ".join(sentences[:10])
-                        return f"TITLE:{page.title}\nSUMMARY:{summary}\nURL:{page.url}\nCATS:N/A"
-                    except Exception:
-                        continue
-                last_err = f'Disambiguation: {", ".join(e.options[:5])}'
-            except wikipedia.exceptions.PageError:
-                last_err = f'Page not found: {title}'; continue
-            except Exception as ex:
-                last_err = str(ex); continue
-        return f'Could not load Wikipedia for "{q}". ({last_err})'
+        # Search via MediaWiki API with custom User-Agent
+        url_search = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(q)}&utf8=&format=json"
+        req = urllib.request.Request(url_search, headers=headers)
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            sdata = json.loads(resp.read().decode("utf-8"))
+            search_res = sdata.get("query", {}).get("search", [])
+            if not search_res:
+                return f'No Wikipedia results found for "{q}".'
+            top_title = search_res[0]["title"]
+
+        # Fetch clean summary
+        url_extract = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(top_title.replace(' ', '_'))}"
+        req2 = urllib.request.Request(url_extract, headers=headers)
+        with urllib.request.urlopen(req2, timeout=6) as resp2:
+            pdata = json.loads(resp2.read().decode("utf-8"))
+            title = pdata.get("title", top_title)
+            extract = pdata.get("extract", "")
+            url = pdata.get("content_urls", {}).get("desktop", {}).get("page", f"https://en.wikipedia.org/wiki/{urllib.parse.quote(top_title)}")
+            return f"TITLE:{title}\nSUMMARY:{extract}\nURL:{url}\nCATS:N/A"
     except Exception as e:
-        return f"Wikipedia error: {e}"
+        # Fallback to standard library
+        try:
+            wikipedia.set_lang("en")
+            summary = wikipedia.summary(q, sentences=4, auto_suggest=True)
+            return f"TITLE:{q.title()}\nSUMMARY:{summary}\nURL:https://en.wikipedia.org/wiki/{urllib.parse.quote(q)}\nCATS:N/A"
+        except Exception as ex:
+            return f"Wikipedia error: {e}"
 
 # ==========================================
 # COMMAND PROCESSOR
@@ -1653,7 +1653,7 @@ def process_command(raw):
                     execute_on_pc(f"nohup brave-browser '{url}' > /tmp/j.log 2>&1 &")
                 else:
                     if sys.platform != "win32":
-                        laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.6")
+                        laptop_ip = os.getenv("LAPTOP_IP", "192.168.1.150")
                         if http_req:
                             http_req.post(f"http://{laptop_ip}:5000/run", json={"command": f"open {target} on laptop"}, timeout=5)
                     else:
@@ -1987,7 +1987,7 @@ def process_command(raw):
         execute_action("sleep_pc", dev); return f"Putting {dev} to sleep..."
 
     if any(k in cmd for k in ["status", "stats", "performance", "how is"]):
-        dev = "pc" if ("on pc" in cmd or " pc" in cmd) else "laptop"
+        dev = "laptop" if "laptop" in cmd else "pc"
         s = get_laptop_stats() if dev == "laptop" else get_pc_stats()
         return f"{dev.upper()} -- CPU:{s['cpu']}% RAM:{s['ram']}% Disk:{s['disk']}% Uptime:{s['uptime']}"
 

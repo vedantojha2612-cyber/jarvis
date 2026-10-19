@@ -7,6 +7,10 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>JARVIS OS — Holographic HUD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <link rel="manifest" href="/manifest.json">
 <!-- Apple / iPad PWA Full Screen Tags -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,19 +21,41 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
 :root {
-  --bg: #000000;
-  --amber: #f59e0b;
-  --amber-core: #ffaa33;
-  --amber-bright: #fbbf24;
-  --amber-dim: #92400e;
-  --amber-deep: #78350f;
-  --amber-subtle: rgba(245, 158, 11, 0.12);
-  --amber-border: rgba(245, 158, 11, 0.26);
-  --amber-glow: rgba(245, 158, 11, 0.38);
-  --text-gold: #fef3c7;
-  --text-dim: #b45309;
-  --mono: "SF Mono", "Fira Code", "Courier New", monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --bg: #060b13;
+  --bg-deep: #02060b;
+  --panel-bg: rgba(6, 15, 28, 0.78);
+  --panel-border: rgba(0, 210, 255, 0.32);
+  --panel-border-bright: rgba(0, 245, 255, 0.75);
+  
+  --cyan: #00d2ff;
+  --cyan-bright: #00f5ff;
+  --cyan-core: #7df9ff;
+  --cyan-dim: #0284c7;
+  --cyan-deep: #03456c;
+  --cyan-subtle: rgba(0, 210, 255, 0.12);
+  --cyan-border: rgba(0, 210, 255, 0.32);
+  --cyan-glow: rgba(0, 210, 255, 0.5);
+  
+  /* Seamless backward compatibility aliases */
+  --amber: #00d2ff;
+  --amber-core: #7df9ff;
+  --amber-bright: #00f5ff;
+  --amber-dim: #0284c7;
+  --amber-deep: #03456c;
+  --amber-subtle: rgba(0, 210, 255, 0.12);
+  --amber-border: rgba(0, 210, 255, 0.32);
+  --amber-glow: rgba(0, 210, 255, 0.5);
+  --text-gold: #e0f7ff;
+  --text-dim: #7dd3fc;
+  
+  --hud-green: #00ff88;
+  --hud-red: #ff3366;
+  --hud-orange: #ffaa00;
+  --hud-blue: #0088ff;
+  
+  --mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+  --display: "Orbitron", sans-serif;
+  --sans: "Rajdhani", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
 html, body {
@@ -37,8 +63,8 @@ html, body {
   height: 100vh;
   margin: 0;
   padding: 0;
-  background: #000000;
-  color: var(--amber);
+  background: radial-gradient(ellipse at center, #091729 0%, #050b14 60%, #02050a 100%);
+  color: var(--cyan);
   font-family: var(--sans);
   overflow: hidden;
   position: relative;
@@ -1007,36 +1033,289 @@ html, body {
 .ss-close { background: none; border: none; color: var(--amber-bright); font-size: 18px; cursor: pointer; }
 .ss-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: var(--amber-dim); font-family: var(--mono); }
 
+
+/* ── CYBERNETIC HUD OVERLAY & VIGNETTE ────────────────────── */
+.cyber-grid-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: 
+    linear-gradient(rgba(0, 210, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 210, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 95%);
+}
+
+.scanline-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.6;
+}
+
+/* ── HUD CORNER BRACKETS ───────────────────────────────────── */
+.hud-corner {
+  position: fixed;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 12;
+  border: 2px solid rgba(0, 210, 255, 0.4);
+}
+.hud-corner.top-left { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+.hud-corner.top-right { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+.hud-corner.bottom-left { bottom: 12px; left: 12px; border-right: none; border-top: none; }
+.hud-corner.bottom-right { bottom: 12px; right: 12px; border-left: none; border-top: none; }
+
+/* ── TACTICAL HUD CARD ENHANCEMENTS ─────────────────────────── */
+.tactical-hud {
+  top: 24px;
+  left: 28px;
+  background: rgba(6, 15, 28, 0.85);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.15), inset 0 0 15px rgba(0, 210, 255, 0.05);
+  backdrop-filter: blur(12px);
+  padding: 14px 18px;
+  border-radius: 6px;
+  pointer-events: auto !important;
+  max-width: 380px;
+  gap: 10px;
+}
+.hud-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+.hud-card-title {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--cyan-bright);
+  text-shadow: 0 0 10px rgba(0, 245, 255, 0.6);
+}
+.hud-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: rgba(0, 255, 136, 0.15);
+  color: var(--hud-green);
+  border: 1px solid rgba(0, 255, 136, 0.4);
+}
+.hud-status-badge.pulse::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hud-green);
+  box-shadow: 0 0 8px var(--hud-green);
+  animation: pulse-dot 1.5s infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* 16-Bar Voice Waveform Visualizer */
+.waveform-equalizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 22px;
+  padding: 2px 0;
+}
+.eq-bar {
+  flex: 1;
+  width: 3.5px;
+  min-height: 3px;
+  background: linear-gradient(to top, rgba(0, 136, 255, 0.8), rgba(0, 245, 255, 1));
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(0, 245, 255, 0.4);
+  transition: height 0.08s ease;
+}
+
+/* DUAL DEVICE TELEMETRY STRIP */
+.dual-telemetry-container {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(0, 210, 255, 0.15);
+  padding-top: 8px;
+}
+.telemetry-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.telemetry-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+.telemetry-col-head .dev-name {
+  color: var(--cyan-core);
+}
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+}
+.meter-mini-track {
+  width: 48px;
+  height: 4px;
+  background: rgba(0, 210, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.meter-mini-fill {
+  height: 100%;
+  background: var(--cyan-bright);
+  box-shadow: 0 0 6px var(--cyan-glow);
+  transition: width 0.3s ease;
+}
+
+/* ARC-REACTOR GLOW & ROTATION ANIMATIONS */
+@keyframes reactor-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes reactor-counter-spin {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
 </style>
 </head>
 <body>
 
-<!-- 1. FULLSCREEN CELESTIAL ASTROLABE CANVAS -->
+<!-- CYBERNETIC HUD VIGNETTE & BRACKETS -->
+<div class="cyber-grid-overlay"></div>
+<div class="scanline-overlay"></div>
+<div class="hud-corner top-left"></div>
+<div class="hud-corner top-right"></div>
+<div class="hud-corner bottom-left"></div>
+<div class="hud-corner bottom-right"></div>
+
+<!-- 1. FULLSCREEN 3D THREE.JS ARC-REACTOR CANVAS -->
 <canvas id="celestial-viewport"></canvas>
 
-<!-- 2. TOP-LEFT FLOATING TACTICAL HUD -->
+<!-- 2. TOP-LEFT FLOATING TACTICAL HUD (IRON MAN ARC-REACTOR EDITION) -->
 <div class="tactical-hud">
-  <div class="hud-row">
-    <span class="hud-label">STATE</span>
-    <span class="hud-val" id="hud-state">LISTENING</span>
+  <div class="hud-card-head">
+    <div class="hud-card-title"><i class="fa fa-atom" style="color:var(--cyan-bright);margin-right:6px;"></i>JARVIS HUD v3.0</div>
+    <div class="hud-status-badge pulse" id="hud-conn-badge">CORE ONLINE</div>
   </div>
+
   <div class="hud-row">
-    <span class="hud-label">AUDIO</span>
-    <div class="audio-bar-track">
-      <div class="audio-bar-fill" id="hud-audio-bar"></div>
+    <span class="hud-label">VOICE AI</span>
+    <span class="hud-val" id="hud-state" style="color:var(--cyan-bright);letter-spacing:0.12em;">STANDBY</span>
+  </div>
+
+  <!-- Dynamic 16-Bar Voice Waveform Visualizer -->
+  <div class="hud-row" style="flex-direction:column;align-items:stretch;gap:4px;">
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-dim);font-family:var(--mono);">
+      <span>AUDIO SPECTRUM</span>
+      <span id="hud-audio-freq">1.2 kHz // NOMINAL</span>
+    </div>
+    <div class="waveform-equalizer" id="hud-eq-bars">
+      <div class="eq-bar" style="height:25%;"></div>
+      <div class="eq-bar" style="height:40%;"></div>
+      <div class="eq-bar" style="height:65%;"></div>
+      <div class="eq-bar" style="height:85%;"></div>
+      <div class="eq-bar" style="height:100%;"></div>
+      <div class="eq-bar" style="height:70%;"></div>
+      <div class="eq-bar" style="height:45%;"></div>
+      <div class="eq-bar" style="height:60%;"></div>
+      <div class="eq-bar" style="height:90%;"></div>
+      <div class="eq-bar" style="height:75%;"></div>
+      <div class="eq-bar" style="height:50%;"></div>
+      <div class="eq-bar" style="height:35%;"></div>
+      <div class="eq-bar" style="height:65%;"></div>
+      <div class="eq-bar" style="height:80%;"></div>
+      <div class="eq-bar" style="height:55%;"></div>
+      <div class="eq-bar" style="height:30%;"></div>
+    </div>
+    <div class="audio-bar-track" style="width:100%;">
+      <div class="audio-bar-fill" id="hud-audio-bar" style="width:20%;"></div>
     </div>
   </div>
-  <div class="hud-row">
-    <span class="hud-label">POWER</span>
-    <span class="hud-val" id="hud-power">55%</span>
+
+  <!-- DUAL DEVICE TELEMETRY: PC VS LAPTOP -->
+  <div class="dual-telemetry-container">
+    <!-- PC TELEMETRY (Zorin Linux) -->
+    <div class="telemetry-col" style="border-right:1px solid rgba(0,210,255,0.15);padding-right:10px;">
+      <div class="telemetry-col-head">
+        <span class="dev-name"><i class="fa fa-desktop" style="margin-right:4px;"></i>PC (ZORIN)</span>
+        <span id="lbl-pc-badge" style="color:var(--hud-green);">127.0.0.1</span>
+      </div>
+      <div class="telemetry-row">
+        <span>CPU</span>
+        <span id="hud-pc-cpu-txt" style="color:var(--cyan-bright);font-weight:700;">--%</span>
+        <div class="meter-mini-track"><div class="meter-mini-fill" id="hud-pc-cpu-bar" style="width:0%;"></div></div>
+      </div>
+      <div class="telemetry-row">
+        <span>RAM</span>
+        <span id="hud-pc-ram-txt" style="color:var(--cyan-bright);font-weight:700;">--%</span>
+        <div class="meter-mini-track"><div class="meter-mini-fill" id="hud-pc-ram-bar" style="width:0%;"></div></div>
+      </div>
+      <div class="telemetry-row">
+        <span>SSH PING</span>
+        <span id="hud-pc-ping" style="color:var(--hud-green);">4ms</span>
+      </div>
+    </div>
+
+    <!-- LAPTOP TELEMETRY (Windows / Host) -->
+    <div class="telemetry-col" style="padding-left:2px;">
+      <div class="telemetry-col-head">
+        <span class="dev-name"><i class="fa fa-laptop" style="margin-right:4px;"></i>LAPTOP</span>
+        <span id="lbl-lap-badge" style="color:var(--cyan-bright);">HOST</span>
+      </div>
+      <div class="telemetry-row">
+        <span>CPU</span>
+        <span id="hud-lap-cpu-txt" style="color:var(--cyan-bright);font-weight:700;">--%</span>
+        <div class="meter-mini-track"><div class="meter-mini-fill" id="hud-lap-cpu-bar" style="width:0%;"></div></div>
+      </div>
+      <div class="telemetry-row">
+        <span>RAM</span>
+        <span id="hud-lap-ram-txt" style="color:var(--cyan-bright);font-weight:700;">--%</span>
+        <div class="meter-mini-track"><div class="meter-mini-fill" id="hud-lap-ram-bar" style="width:0%;"></div></div>
+      </div>
+      <div class="telemetry-row">
+        <span>BATTERY</span>
+        <span id="hud-power" style="color:var(--cyan-core);font-weight:700;">--%</span>
+      </div>
+    </div>
   </div>
-  <div class="hud-row">
-    <span class="hud-label">UPTIME</span>
-    <span class="hud-val" id="hud-uptime">00:11</span>
-  </div>
-  <div class="hud-row">
-    <span class="hud-label">TEMP</span>
-    <span class="hud-val" id="hud-temp">24°C</span>
+
+  <div class="hud-row" style="font-size:9px;color:var(--text-dim);border-top:1px solid rgba(0,210,255,0.15);padding-top:6px;margin-top:2px;">
+    <span>AC: <b id="hud-temp" style="color:var(--cyan-core);">24°C</b></span>
+    <span>UPTIME: <b id="hud-uptime" style="color:var(--cyan-bright);">00:00</b></span>
+    <span onclick="openDrawer('pc-drawer')" style="cursor:pointer;color:var(--cyan-bright);text-decoration:underline;"><i class="fa fa-terminal"></i> PC SHELL</span>
   </div>
 </div>
 
@@ -1054,7 +1333,7 @@ html, body {
   <div class="log-entry">
     <span class="log-ts">11:50:12</span>
     <span class="log-tag">LINK</span>
-    <span class="log-msg">BACKEND ONLINE · 192.168.1.6:5000</span>
+    <span class="log-msg">BACKEND ONLINE · localhost:5000</span>
   </div>
   <div class="log-entry">
     <span class="log-ts">11:50:12</span>
@@ -1734,11 +2013,11 @@ html, body {
         <div class="card-title"><i class="fa fa-bolt"></i>Quick Clipboard Shortcuts</div>
         <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Tap any quick snippet to copy to both Laptop & iPad clipboard instantly.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="chip" onclick="quickSendClip('http://192.168.1.6:5000')">🌐 Jarvis Web UI (192.168.1.6:5000)</button>
+          <button class="chip" onclick="quickSendClip('http://localhost:5000')">🌐 Jarvis Web UI (localhost:5000)</button>
           <button class="chip" onclick="quickSendClip('https://pw.live')">📚 PW Live</button>
           <button class="chip" onclick="quickSendClip('https://molview.org')">🧪 MolView 3D</button>
           <button class="chip" onclick="quickSendClip('https://gemini.google.com')">✨ Gemini AI</button>
-          <button class="chip" onclick="quickSendClip('192.168.1.10')">🖥️ Zorin PC IP</button>
+          <button class="chip" onclick="quickSendClip('127.0.0.1')">🖥️ Host PC IP</button>
         </div>
       </div>
     
@@ -1785,7 +2064,7 @@ html, body {
         <div class="diag-card">
           <div class="diag-lbl">Zorin OS PC (SSH)</div>
           <div class="diag-val" id="diag-pc-st">Checking...</div>
-          <div class="diag-sub" id="diag-pc-ip">192.168.1.10</div>
+          <div class="diag-sub" id="diag-pc-ip">127.0.0.1</div>
         </div>
         <div class="diag-card">
           <div class="diag-lbl">MirAIe AC Link</div>
@@ -1806,7 +2085,7 @@ html, body {
             <i class="fa fa-wifi"></i>Local Wi-Fi Devices
             <button onclick="fetchNetworkDevicesUI()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">↻ Scan</button>
           </div>
-          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Detected on 192.168.1.0/24 subnet via ARP table.</p>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Detected on local subnet via ARP table.</p>
           <div id="device-list" style="max-height:280px;overflow-y:auto">
             <div style="color:var(--text3);padding:14px;font-size:12px">Scanning subnet...</div>
           </div>
@@ -1862,7 +2141,7 @@ html, body {
         <!-- Zorin Linux PC Interactive Remote Terminal -->
         <div class="card" style="grid-column:1/-1;margin-top:10px">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-            <span><i class="fa-solid fa-terminal" style="color:var(--green)"></i>Zorin Linux PC Terminal (jay@192.168.1.10)</span>
+            <span><i class="fa-solid fa-terminal" style="color:var(--green)"></i>Zorin Linux PC Terminal (remote-pc)</span>
             <div style="display:flex;gap:6px">
               <button class="btn btn-ghost btn-sm" onclick="clearPCTerminal()"><i class="fa fa-eraser"></i> Clear</button>
             </div>
@@ -1876,7 +2155,7 @@ html, body {
             <span class="chip" onclick="quickPCTerm('ip -brief addr')">🌐 IP Addresses</span>
             <span class="chip" onclick="quickPCTerm('whoami && uname -a')">🐧 Kernel & User</span>
           </div>
-          <div id="pc-term-box" style="background:#050505;border:1px solid var(--border);border-radius:var(--r);padding:14px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#22c55e;min-height:160px;max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:10px">jay@zorin:~$ echo "Jarvis Remote Terminal Ready"
+          <div id="pc-term-box" style="background:#050505;border:1px solid var(--border);border-radius:var(--r);padding:14px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#22c55e;min-height:160px;max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:10px">user@remote-pc:~$ echo "Jarvis Remote Terminal Ready"
 Jarvis Remote Terminal Ready</div>
           <div style="display:flex;gap:8px">
             <input id="pc-term-in" class="input" style="font-family:monospace;font-size:13px" type="text" placeholder="Enter bash command (e.g. ls -la, sensors, ping -c 3 8.8.8.8)..." onkeypress="if(event.key==='Enter')runPCTerminalUI()">
@@ -2137,544 +2416,785 @@ function addHUDLog(tag, msg){
   }
 }
 
-// ── 2. 3D CELESTIAL ASTROLABE GYROSCOPE ENGINE (HIERARCHICAL BRANCHES & ZOOM) ───────────────
-(function initCelestialEngine(){
+// ── 2. 3D THREE.JS HOLOGRAPHIC ARC-REACTOR & CELESTIAL ENGINE ────────────────
+(function initThreeArcReactorEngine(){
   var canvas = document.getElementById('celestial-viewport');
   if(!canvas) return;
-  var ctx = canvas.getContext('2d');
 
-  var w, h, cx, cy;
-  function resize(){
-    var dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-    ctx.scale(dpr, dpr);
-    w = window.innerWidth;
-    h = window.innerHeight;
-    cx = w / 2;
-    cy = h / 2;
+  // Verify Three.js is loaded
+  if(typeof THREE === 'undefined'){
+    console.warn('[JARVIS HUD] Three.js CDN not ready; fallback active');
+    return;
   }
-  resize();
-  window.addEventListener('resize', resize);
 
-  // 1. Generate 3D Star Swarm (380 Particles around Stellar Core)
-  var particles = [];
-  var N = 380;
-  var sphereRad = 175;
-  for(var i = 0; i < N; i++){
+  // 1. Scene, Camera & WebGL Renderer
+  var scene = new THREE.Scene();
+  var w = window.innerWidth;
+  var h = window.innerHeight;
+  var camera = new THREE.PerspectiveCamera(50, w / h, 1, 4000);
+  camera.position.set(0, 0, 720);
+
+  var renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance",
+    preserveDrawingBuffer: true
+  });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  // Root Holographic Group
+  var reactorGroup = new THREE.Group();
+  scene.add(reactorGroup);
+
+  // 2. Center Arc-Reactor Core (Wireframe Icosahedron + Inner Pulsing Geosphere)
+  var coreGroup = new THREE.Group();
+  reactorGroup.add(coreGroup);
+
+  // Outer Wireframe Icosahedron (Electric Cyan)
+  var icoGeom = new THREE.IcosahedronGeometry(78, 1);
+  var wireGeom = new THREE.WireframeGeometry(icoGeom);
+  var wireMat = new THREE.LineBasicMaterial({
+    color: 0x00f5ff,
+    transparent: true,
+    opacity: 0.85,
+    linewidth: 2
+  });
+  var coreWireframe = new THREE.LineSegments(wireGeom, wireMat);
+  coreGroup.add(coreWireframe);
+
+  // Vertex points glow
+  var icoPtsGeom = new THREE.IcosahedronGeometry(78, 1);
+  var icoPtsMat = new THREE.PointsMaterial({
+    color: 0x7df9ff,
+    size: 4.5,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending
+  });
+  var corePoints = new THREE.Points(icoPtsGeom, icoPtsMat);
+  coreGroup.add(corePoints);
+
+  // Inner Pulsing Geodesic Core
+  var innerGeom = new THREE.SphereGeometry(44, 20, 20);
+  var innerMat = new THREE.MeshBasicMaterial({
+    color: 0x00d2ff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.35,
+    blending: THREE.AdditiveBlending
+  });
+  var innerCore = new THREE.Mesh(innerGeom, innerMat);
+  coreGroup.add(innerCore);
+
+  // Central Point Light for depth illumination
+  var coreLight = new THREE.PointLight(0x00f5ff, 2.2, 800);
+  coreGroup.add(coreLight);
+
+  // 3. Concentric 3D Gimbal Coordinate Rings (Iron Man Arc-Reactor HUD)
+  function createDashedRing(radius, tube, radialSegments, tubularSegments, color, opacity, tiltX, tiltY){
+    var geom = new THREE.TorusGeometry(radius, tube, radialSegments, tubularSegments);
+    var mat = new THREE.MeshBasicMaterial({
+      color: color,
+      wireframe: true,
+      transparent: true,
+      opacity: opacity,
+      blending: THREE.AdditiveBlending
+    });
+    var mesh = new THREE.Mesh(geom, mat);
+    mesh.rotation.x = tiltX;
+    mesh.rotation.y = tiltY;
+    return mesh;
+  }
+
+  // Ring 1: Inner High-Speed Tachymeter Ring
+  var ring1 = createDashedRing(125, 1.2, 4, 64, 0x00f5ff, 0.75, 0.1, 0);
+  reactorGroup.add(ring1);
+
+  // Ring 2: Primary Gimbal Ring Alpha
+  var ring2 = createDashedRing(170, 1.8, 4, 72, 0x00d2ff, 0.65, 0.65, 0.25);
+  reactorGroup.add(ring2);
+
+  // Ring 3: Counter-Rotating Gyroscope Ring Beta
+  var ring3 = createDashedRing(215, 2.0, 4, 80, 0x0088ff, 0.55, -0.55, 0.45);
+  reactorGroup.add(ring3);
+
+  // Ring 4: Outer Perimeter Celestial Coordinate Ring
+  var ring4 = createDashedRing(265, 2.2, 4, 96, 0x00d2ff, 0.45, 1.15, -0.3);
+  reactorGroup.add(ring4);
+
+  // 4. Dynamic Audio-Reactive Waveform Ring
+  var waveCount = 128;
+  var waveGeom = new THREE.BufferGeometry();
+  var wavePositions = new Float32Array(waveCount * 3);
+  var waveRadius = 148;
+  for(var i = 0; i < waveCount; i++){
+    var angle = (i / waveCount) * Math.PI * 2;
+    wavePositions[i * 3]     = Math.cos(angle) * waveRadius;
+    wavePositions[i * 3 + 1] = Math.sin(angle) * waveRadius;
+    wavePositions[i * 3 + 2] = 0;
+  }
+  waveGeom.setAttribute('position', new THREE.BufferAttribute(wavePositions, 3));
+  var waveMat = new THREE.LineBasicMaterial({
+    color: 0x7df9ff,
+    transparent: true,
+    opacity: 0.95,
+    linewidth: 2,
+    blending: THREE.AdditiveBlending
+  });
+  var waveLoop = new THREE.LineLoop(waveGeom, waveMat);
+  reactorGroup.add(waveLoop);
+
+  // 5. 3D Star Swarm / Quantum Dust Particles (Depth-Sorted)
+  var swarmCount = 520;
+  var swarmGeom = new THREE.BufferGeometry();
+  var swarmPositions = new Float32Array(swarmCount * 3);
+  var swarmRadius = 310;
+  for(var i = 0; i < swarmCount; i++){
     var u = Math.random();
     var v = Math.random();
     var theta = u * 2.0 * Math.PI;
     var phi = Math.acos(2.0 * v - 1.0);
-    var r = sphereRad * (0.35 + 0.65 * Math.cbrt(Math.random()));
-    particles.push({
-      x: r * Math.sin(phi) * Math.cos(theta),
-      y: r * Math.sin(phi) * Math.sin(theta),
-      z: r * Math.cos(phi),
-      baseSize: 0.8 + Math.random() * 1.6
-    });
+    var r = swarmRadius * (0.38 + 0.62 * Math.cbrt(Math.random()));
+    swarmPositions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    swarmPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    swarmPositions[i * 3 + 2] = r * Math.cos(phi);
   }
+  swarmGeom.setAttribute('position', new THREE.BufferAttribute(swarmPositions, 3));
+  var swarmMat = new THREE.PointsMaterial({
+    color: 0x00d2ff,
+    size: 2.8,
+    transparent: true,
+    opacity: 0.65,
+    blending: THREE.AdditiveBlending
+  });
+  var starSwarm = new THREE.Points(swarmGeom, swarmMat);
+  reactorGroup.add(starSwarm);
 
-  // 2. 3D Segmented Mechanical Gimbal Coordinate Rings
-  var gimbalRings = [
-    { radius: 180, tiltX: 0.05, tiltY: 0, speed: 0.003, dashCount: 56, tickLen: 6 },
-    { radius: 200, tiltX: 0.65, tiltY: 0.2, speed: -0.0038, dashCount: 48, tickLen: 7 },
-    { radius: 220, tiltX: -0.55, tiltY: 0.42, speed: 0.0025, dashCount: 64, tickLen: 5 },
-    { radius: 160, tiltX: 1.15, tiltY: -0.3, speed: -0.0035, dashCount: 40, tickLen: 6 }
-  ];
-
-  // 3. HIERARCHICAL ORBITAL CLUSTERS (BRANCHING 3D SYSTEM)
-  // Wikipedia is strictly grouped under Study Hub as requested!
-  var orbitalClusters = [
-    {
-      id: "study",
-      name: "01 // STUDY HUB",
-      category: "ACADEMIC",
-      fullName: "STUDY HUB // PROTOCOLS & GOALS",
-      drawer: "study-drawer",
-      angle: 0,
-      dist: 290,
-      tilt: 0.22,
-      children: [
-        { id: "wiki", name: "WIKIPEDIA", fullName: "WIKIPEDIA // KNOWLEDGE ENGINE", drawer: "wiki-drawer", subAngle: -0.58, subDist: 94, subTilt: 0.22 },
-        { id: "solver", name: "AI SOLVER", fullName: "GEMINI 3.6 VISION SOLVER", drawer: "solver-drawer", subAngle: 0.02, subDist: 108, subTilt: -0.28 },
-        { id: "notes", name: "NOTES", fullName: "STICKY STUDY NOTES", drawer: "notes-drawer", subAngle: 0.62, subDist: 90, subTilt: 0.18 }
-      ]
-    },
-    {
-      id: "pc",
-      name: "02 // HARDWARE & PC",
-      category: "SYSTEM & WORKSTATIONS",
-      fullName: "HARDWARE // LAPTOP & LINUX PC",
-      drawer: "pc-drawer",
-      angle: Math.PI * 0.5,
-      dist: 280,
-      tilt: -0.32,
-      children: [
-        { id: "diag", name: "DIAGNOSTICS", fullName: "SYSTEM DIAGNOSTICS & TELEMETRY", drawer: "diag-drawer", subAngle: -0.54, subDist: 98, subTilt: -0.22 },
-        { id: "files", name: "FILES", fullName: "FILE MANAGER & WORKSPACE", drawer: "files-drawer", subAngle: 0.08, subDist: 104, subTilt: 0.28 },
-        { id: "clipboard", name: "CLIPBOARD", fullName: "CLIPBOARD SYNC & HISTORY", drawer: "clipboard-drawer", subAngle: 0.66, subDist: 88, subTilt: -0.12 }
-      ]
-    },
+  // 6. 3D Interactive Orbital Clusters & Subsystems (Iron Man HUD Dynamic 3D Labels)
+  var clustersData = [
     {
       id: "ac",
-      name: "03 // MIRAIe AC",
-      category: "CLIMATE & IOT",
-      fullName: "PANASONIC AC // 24°C CLIMATE",
+      name: "Smart AC & Climate",
+      label: "AC CONTROL",
+      subLabel: "CLIMATE / MIRAI",
       drawer: "ac-drawer",
-      angle: Math.PI * 1.0,
-      dist: 295,
-      tilt: 0.35,
+      angle: Math.PI + 0.15,
+      dist: 340,
+      color: 0x00d2ff,
       children: [
-        { id: "reminders", name: "REMINDERS", fullName: "TIMERS, ALARMS & SCHEDULES", drawer: "reminders-drawer", subAngle: -0.45, subDist: 92, subTilt: 0.22 },
-        { id: "analytics", name: "ANALYTICS", fullName: "SYSTEM ANALYTICS & USAGE", drawer: "analytics-drawer", subAngle: 0.45, subDist: 94, subTilt: -0.24 }
+        { id: "reminders", name: "Reminders & Alerts", label: "REMINDERS", drawer: "reminders-drawer", subAngle: -0.5, subDist: 95 },
+        { id: "goals", name: "Daily Targets & Goals", label: "GOALS", drawer: "study-drawer", subAngle: 0.5, subDist: 95 }
       ]
     },
     {
       id: "media",
-      name: "04 // MEDIA CORE",
-      category: "OPERATIONS",
-      fullName: "YOUTUBE & MEDIA DISPATCHER",
+      name: "Media & Sensors Core",
+      label: "MEDIA CORE",
+      subLabel: "PLAYER / SENSORS",
       drawer: "media-drawer",
-      angle: Math.PI * 1.5,
-      dist: 285,
-      tilt: -0.25,
+      angle: Math.PI * 1.5 + 0.1,
+      dist: 340,
+      color: 0xffaa00,
       children: [
-        { id: "console", name: "TERMINAL", fullName: "JARVIS LIVE CONSOLE", action: "toggleChat", subAngle: -0.48, subDist: 96, subTilt: 0.18 },
-        { id: "vision", name: "AI VISION", fullName: "SCREEN CAPTURE & SOLVER", action: "solveScreenProblemUI", subAngle: 0.48, subDist: 96, subTilt: -0.2 }
+        { id: "yt", name: "YouTube Player", label: "YOUTUBE", drawer: "media-drawer", subAngle: -0.45, subDist: 95 },
+        { id: "analytics", name: "Telemetry & Analytics", label: "ANALYTICS", drawer: "analytics-drawer", subAngle: 0.45, subDist: 95 }
+      ]
+    },
+    {
+      id: "study",
+      name: "Study Hub Protocols",
+      label: "STUDY HUB",
+      subLabel: "ACADEMICS",
+      drawer: "study-drawer",
+      angle: 0.15,
+      dist: 340,
+      color: 0x00f5ff,
+      children: [
+        { id: "wiki", name: "Wikipedia Search", label: "WIKIPEDIA", drawer: "wiki-drawer", subAngle: -0.55, subDist: 95 },
+        { id: "solver", name: "AI Vision & Solver", label: "AI SOLVER", drawer: "solver-drawer", subAngle: 0.05, subDist: 110 },
+        { id: "notes", name: "Tactical Notes", label: "NOTES", drawer: "notes-drawer", subAngle: 0.65, subDist: 90 }
+      ]
+    },
+    {
+      id: "pc",
+      name: "Hardware & PC Control",
+      label: "PC CONTROL",
+      subLabel: "SYSTEM OPS",
+      drawer: "pc-drawer",
+      angle: Math.PI * 0.5 + 0.1,
+      dist: 340,
+      color: 0x00ff88,
+      children: [
+        { id: "diag", name: "Deep Diagnostics", label: "DIAGNOSTICS", drawer: "diag-drawer", subAngle: -0.45, subDist: 95 },
+        { id: "clip", name: "Clipboard Hub", label: "CLIPBOARD", drawer: "clipboard-drawer", subAngle: 0.45, subDist: 95 },
+        { id: "files", name: "Study Files", label: "FILES", drawer: "files-drawer", subAngle: 1.0, subDist: 95 }
       ]
     }
   ];
 
-  // Camera, Gyro & Zoom Tracking
-  var rotX = 0.12, rotY = 0.35;
-  var targetRotX = 0.12, targetRotY = 0.35;
-  var zoom = 1.0, targetZoom = 1.0;
-  var isDragging = false;
-  var startX = 0, startY = 0;
-  var hoveredNode = null;
-  var activeHitTargets = [];
-  var pulseTime = 0;
+  var interactiveObjects = [];
+  var interactiveSprites = [];
+  var clusterNodesGroup = new THREE.Group();
+  reactorGroup.add(clusterNodesGroup);
+  window._jarvisScene = scene;
+  window._jarvisCamera = camera;
+  window._jarvisInteractive = interactiveObjects;
+  window._jarvisSprites = interactiveSprites;
 
-  // Mouse drag tracking
-  canvas.addEventListener('mousedown', function(e){
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-  });
-  window.addEventListener('mouseup', function(){ isDragging = false; });
-  window.addEventListener('mousemove', function(e){
-    if(isDragging){
-      var dx = e.clientX - startX;
-      var dy = e.clientY - startY;
-      targetRotY += dx * 0.006;
-      targetRotX -= dy * 0.006;
-      startX = e.clientX;
-      startY = e.clientY;
+  // Holographic 3D HUD Canvas Sprite Generator & Dynamic Redraw Engine
+  function drawOrbLabelCanvas(c, text, subText, colorHex, isMain){
+    var ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+
+    var hexStr = typeof colorHex === 'number' ? '#' + colorHex.toString(16).padStart(6, '0') : (colorHex || '#00f5ff');
+
+    var w = 480;
+    var h = isMain ? 114 : 76;
+    var x = 16;
+    var y = 10;
+    var r = isMain ? 12 : 8;
+
+    ctx.save();
+
+    // Dark semi-transparent cybernetic HUD plate
+    var grad = ctx.createLinearGradient(x, y, x + w, y + h);
+    grad.addColorStop(0, 'rgba(4, 14, 28, 0.90)');
+    grad.addColorStop(1, 'rgba(7, 24, 46, 0.85)');
+    ctx.fillStyle = grad;
+
+    // Glowing border
+    ctx.strokeStyle = hexStr;
+    ctx.lineWidth = isMain ? 3 : 2;
+    ctx.shadowColor = hexStr;
+    ctx.shadowBlur = isMain ? 14 : 8;
+
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Tactical corner bracket accents
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 4;
+    var bLen = isMain ? 14 : 10;
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + bLen); ctx.lineTo(x + 3, y + 3); ctx.lineTo(x + bLen, y + 3); ctx.stroke();
+    // Bottom-Right
+    ctx.beginPath();
+    ctx.moveTo(x + w - bLen, y + h - 3); ctx.lineTo(x + w - 3, y + h - 3); ctx.lineTo(x + w - 3, y + h - bLen); ctx.stroke();
+
+    // Indicator Dot
+    ctx.beginPath();
+    var dotY = (isMain && subText) ? (y + 40) : (y + h / 2);
+    ctx.arc(x + 28, dotY, isMain ? 6 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = hexStr;
+    ctx.shadowColor = hexStr;
+    ctx.shadowBlur = 12;
+    ctx.fill();
+
+    // Main Function Label
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = (isMain ? 'bold 36px ' : 'bold 28px ') + '"Orbitron", "Rajdhani", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = hexStr;
+    ctx.shadowBlur = 12;
+    var textCenterX = x + w / 2 + 10;
+    var titleY = (isMain && subText) ? (y + 40) : (y + h / 2);
+    ctx.fillText(text, textCenterX, titleY);
+
+    // Subtitle / Subsystem Function
+    if(isMain && subText){
+      ctx.font = '600 20px "JetBrains Mono", monospace';
+      ctx.fillStyle = hexStr;
+      ctx.shadowColor = hexStr;
+      ctx.shadowBlur = 6;
+      ctx.fillText(subText, textCenterX, y + 80);
     }
-    checkHover(e.clientX, e.clientY);
+
+    ctx.restore();
+  }
+
+  function createOrbLabelSprite(text, subText, colorHex, isMain){
+    var c = document.createElement('canvas');
+    c.width = 512;
+    c.height = isMain ? 136 : 96;
+    drawOrbLabelCanvas(c, text, subText, colorHex, isMain);
+
+    var texture = new THREE.CanvasTexture(c);
+    texture.minFilter = THREE.LinearFilter;
+    var spriteMat = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.96,
+      depthTest: false,
+      depthWrite: false
+    });
+    var sprite = new THREE.Sprite(spriteMat);
+    var scaleX = isMain ? 72 : 48;
+    var scaleY = isMain ? 17 : 9.5;
+    sprite.scale.set(scaleX, scaleY, 1);
+    sprite._canvas = c;
+    sprite._text = text;
+    sprite._subText = subText;
+    sprite._isMain = isMain;
+    return sprite;
+  }
+
+  clustersData.forEach(function(c){
+    var cx = Math.cos(c.angle) * c.dist;
+    var cy = Math.sin(c.angle) * c.dist * 0.55;
+    var cz = Math.sin(c.angle) * c.dist * 0.4;
+
+    // Node Mesh (Octahedron diamond)
+    var nodeGeom = new THREE.OctahedronGeometry(15, 0);
+    var nodeMat = new THREE.MeshBasicMaterial({
+      color: c.color,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    var nodeMesh = new THREE.Mesh(nodeGeom, nodeMat);
+    nodeMesh.position.set(cx, cy, cz);
+    nodeMesh.userData = { drawer: c.drawer, name: c.name, type: "cluster" };
+    clusterNodesGroup.add(nodeMesh);
+    interactiveObjects.push(nodeMesh);
+
+    // Inner glowing sphere core for orb
+    var orbCoreGeom = new THREE.SphereGeometry(7, 16, 16);
+    var orbCoreMat = new THREE.MeshBasicMaterial({
+      color: c.color,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending
+    });
+    var orbCore = new THREE.Mesh(orbCoreGeom, orbCoreMat);
+    nodeMesh.add(orbCore);
+
+    // Label Sprite placed under the orb
+    var labelSprite = createOrbLabelSprite(c.label || c.name, c.subLabel || "", c.color, true);
+    labelSprite.userData = { drawer: c.drawer, name: c.name, type: "cluster_label" };
+    clusterNodesGroup.add(labelSprite);
+    interactiveObjects.push(labelSprite);
+    interactiveSprites.push({
+      sprite: labelSprite,
+      parentMesh: nodeMesh,
+      offsetY: 28,
+      baseColor: c.color
+    });
+
+    // Connecting laser line from core
+    var lineGeom = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(cx, cy, cz)
+    ]);
+    var lineMat = new THREE.LineBasicMaterial({
+      color: c.color,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending
+    });
+    clusterNodesGroup.add(new THREE.Line(lineGeom, lineMat));
+
+    // Satellite Children
+    if(c.children){
+      c.children.forEach(function(child){
+        var sx = cx + Math.cos(child.subAngle) * child.subDist;
+        var sy = cy + Math.sin(child.subAngle) * child.subDist * 0.7;
+        var sz = cz + Math.sin(child.subAngle) * 30;
+
+        var satGeom = new THREE.SphereGeometry(8, 12, 12);
+        var satMat = new THREE.MeshBasicMaterial({
+          color: 0x7df9ff,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.85
+        });
+        var satMesh = new THREE.Mesh(satGeom, satMat);
+        satMesh.position.set(sx, sy, sz);
+        satMesh.userData = { drawer: child.drawer, name: child.name, type: "satellite" };
+        clusterNodesGroup.add(satMesh);
+        interactiveObjects.push(satMesh);
+
+        // Satellite glowing core
+        var satCoreGeom = new THREE.SphereGeometry(4, 12, 12);
+        var satCoreMat = new THREE.MeshBasicMaterial({
+          color: 0x00f5ff,
+          transparent: true,
+          opacity: 0.75,
+          blending: THREE.AdditiveBlending
+        });
+        satMesh.add(new THREE.Mesh(satCoreGeom, satCoreMat));
+
+        // Label Sprite placed under satellite orb
+        var satLabel = createOrbLabelSprite(child.label || child.name, "", 0x7df9ff, false);
+        satLabel.userData = { drawer: child.drawer, name: child.name, type: "satellite_label" };
+        clusterNodesGroup.add(satLabel);
+        interactiveObjects.push(satLabel);
+        interactiveSprites.push({
+          sprite: satLabel,
+          parentMesh: satMesh,
+          offsetY: 17,
+          baseColor: 0x7df9ff
+        });
+
+        var satLineGeom = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(cx, cy, cz),
+          new THREE.Vector3(sx, sy, sz)
+        ]);
+        var satLineMat = new THREE.LineBasicMaterial({
+          color: 0x00d2ff,
+          transparent: true,
+          opacity: 0.25
+        });
+        clusterNodesGroup.add(new THREE.Line(satLineGeom, satLineMat));
+      });
+    }
   });
 
-  // Mouse wheel zoom
-  canvas.addEventListener('wheel', function(e){
-    e.preventDefault();
-    targetZoom += (e.deltaY < 0 ? 0.12 : -0.12);
-    targetZoom = Math.max(0.45, Math.min(2.5, targetZoom));
-    updateZoomHUD();
-  }, {passive: false});
+  // 7. Interactive Mouse Controls & Parallax
+  var mouse = { x: 0, y: 0, rawX: 0, rawY: 0 };
+  var targetRotation = { x: 0.15, y: 0 };
+  var currentRotation = { x: 0.15, y: 0 };
+  var targetZoom = 1.0;
+  var currentZoom = 1.0;
+  var isDragging = false;
+  var prevPointer = { x: 0, y: 0 };
+  var raycaster = new THREE.Raycaster();
+  var mouseNDC = new THREE.Vector2();
 
-  // Touch Support & Pinch-to-Zoom
-  var initialPinchDist = null;
-  var initialZoom = 1.0;
+  window.addEventListener('mousemove', function(e){
+    mouse.rawX = e.clientX;
+    mouse.rawY = e.clientY;
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    mouseNDC.set(mouse.x, mouse.y);
+
+    if(isDragging){
+      var dx = e.clientX - prevPointer.x;
+      var dy = e.clientY - prevPointer.y;
+      targetRotation.y += dx * 0.005;
+      targetRotation.x += dy * 0.005;
+      prevPointer.x = e.clientX;
+      prevPointer.y = e.clientY;
+    } else {
+      raycaster.setFromCamera(mouseNDC, camera);
+      var hits = raycaster.intersectObjects(interactiveObjects);
+      if(hits.length > 0){
+        canvas.style.cursor = 'pointer';
+      } else {
+        canvas.style.cursor = 'grab';
+      }
+    }
+  });
+
+  canvas.addEventListener('mousedown', function(e){
+    if(e.button === 0){
+      isDragging = true;
+      prevPointer.x = e.clientX;
+      prevPointer.y = e.clientY;
+      canvas.style.cursor = 'grabbing';
+    }
+  });
+
+  window.addEventListener('mouseup', function(){
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+  });
+
+  // Raycaster click to open drawer
+  canvas.addEventListener('click', function(e){
+    raycaster.setFromCamera(mouseNDC, camera);
+    var intersects = raycaster.intersectObjects(interactiveObjects);
+    if(intersects.length > 0){
+      var hit = intersects[0].object.userData;
+      if(hit && hit.drawer){
+        openDrawer(hit.drawer);
+        toast('Opening ' + hit.name, 'ok');
+      }
+    }
+  });
+
+  // Wheel zoom
+  window.addEventListener('wheel', function(e){
+    if(e.target === canvas || e.target.id === 'celestial-viewport'){
+      e.preventDefault();
+      var delta = e.deltaY * -0.0012;
+      targetZoom = Math.max(0.5, Math.min(2.2, targetZoom + delta));
+      updateZoomHUD();
+    }
+  }, { passive: false });
+
+  // Touch Support
+  var touchStartDist = 0;
   canvas.addEventListener('touchstart', function(e){
     if(e.touches.length === 1){
       isDragging = true;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
+      prevPointer.x = e.touches[0].clientX;
+      prevPointer.y = e.touches[0].clientY;
     } else if(e.touches.length === 2){
       isDragging = false;
-      initialPinchDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      initialZoom = targetZoom;
+      var dx = e.touches[0].clientX - e.touches[1].clientX;
+      var dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.sqrt(dx*dx + dy*dy);
     }
-  }, {passive: true});
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', function(e){
+    if(e.touches.length === 1 && isDragging){
+      var dx = e.touches[0].clientX - prevPointer.x;
+      var dy = e.touches[0].clientY - prevPointer.y;
+      targetRotation.y += dx * 0.006;
+      targetRotation.x += dy * 0.006;
+      prevPointer.x = e.touches[0].clientX;
+      prevPointer.y = e.touches[0].clientY;
+    } else if(e.touches.length === 2 && touchStartDist > 0){
+      var dx = e.touches[0].clientX - e.touches[1].clientX;
+      var dy = e.touches[0].clientY - e.touches[1].clientY;
+      var newDist = Math.sqrt(dx*dx + dy*dy);
+      var scale = newDist / touchStartDist;
+      targetZoom = Math.max(0.5, Math.min(2.2, targetZoom * scale));
+      touchStartDist = newDist;
+      updateZoomHUD();
+    }
+  }, { passive: true });
 
   canvas.addEventListener('touchend', function(){
     isDragging = false;
-    initialPinchDist = null;
+    touchStartDist = 0;
   });
 
-  canvas.addEventListener('touchmove', function(e){
-    if(isDragging && e.touches.length === 1){
-      var dx = e.touches[0].clientX - startX;
-      var dy = e.touches[0].clientY - startY;
-      targetRotY += dx * 0.006;
-      targetRotX -= dy * 0.006;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    } else if(e.touches.length === 2 && initialPinchDist){
-      var curDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      targetZoom = Math.max(0.45, Math.min(2.5, initialZoom * (curDist / initialPinchDist)));
-      updateZoomHUD();
-    }
-  }, {passive: true});
-
-  // Click handler on 3D Astrolabe Nodes
-  canvas.addEventListener('click', function(e){
-    if(Math.hypot(e.clientX - startX, e.clientY - startY) > 8) return;
-    var hit = checkHover(e.clientX, e.clientY);
-    if(hit){
-      if(hit.drawer){
-        openDrawer(hit.drawer);
-        toast('Engaged ' + hit.name, 'ok');
-        addHUDLog('NAV', 'Engaged ' + hit.name);
-      } else if(hit.action && typeof window[hit.action] === 'function'){
-        window[hit.action]();
-        toast('Engaged ' + hit.name, 'ok');
-        addHUDLog('CMD', 'Executed ' + hit.name);
-      }
-    }
-  });
-
-  function project(x, y, z, cosY, sinY, cosX, sinX){
-    var x1 = x * cosY - z * sinY;
-    var z1 = x * sinY + z * cosY;
-    var y1 = y * cosX - z1 * sinX;
-    var z2 = y * sinX + z1 * cosX;
-
-    var fov = 420;
-    var scale = (fov / (fov + z2)) * zoom;
-    return {
-      x: cx + x1 * scale,
-      y: cy + y1 * scale,
-      z: z2,
-      scale: scale
-    };
+  // Window Resize
+  function onWindowResize(){
+    w = window.innerWidth;
+    h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   }
+  window.addEventListener('resize', onWindowResize);
 
-  function checkHover(mx, my){
-    hoveredNode = null;
-    for(var i = 0; i < activeHitTargets.length; i++){
-      var ht = activeHitTargets[i];
-      if(Math.hypot(mx - ht.x, my - ht.y) < ht.r){
-        hoveredNode = ht.target;
-        canvas.style.cursor = 'pointer';
-        return ht.target;
-      }
-    }
-    canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
-    return null;
+  // Zoom Controllers
+  function updateZoomHUD(){
+    var val = document.getElementById('hud-zoom-val');
+    if(val) val.textContent = Math.round(targetZoom * 100) + '%';
   }
-
-  // Animation Loop
-  function draw(){
-    ctx.clearRect(0, 0, w, h);
-    var speedMul = isVisualizerActive ? 2.0 : 1.0;
-    pulseTime += 0.026 * speedMul;
-
-    rotY += (targetRotY - rotY) * 0.07 + (0.002 * speedMul);
-    rotX += (targetRotX - rotX) * 0.07;
-    zoom += (targetZoom - zoom) * 0.1;
-
-    var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-    var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-
-    // ── 1. CENTRAL STELLAR WARM GLOW ──
-    var corePulse = Math.sin(pulseTime * 2.2) * 6;
-    var coreGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, (54 + corePulse) * zoom);
-    coreGrad.addColorStop(0, "#ffffff");
-    coreGrad.addColorStop(0.16, "#ffe699");
-    coreGrad.addColorStop(0.42, "rgba(245, 158, 11, 0.95)");
-    coreGrad.addColorStop(0.72, "rgba(180, 83, 9, 0.4)");
-    coreGrad.addColorStop(1, "transparent");
-    ctx.fillStyle = coreGrad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, (54 + corePulse) * zoom, 0, Math.PI * 2);
-    ctx.fill();
-
-    var outerGlow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 140 * zoom);
-    outerGlow.addColorStop(0, "rgba(245, 158, 11, 0.26)");
-    outerGlow.addColorStop(0.5, "rgba(146, 64, 14, 0.08)");
-    outerGlow.addColorStop(1, "transparent");
-    ctx.fillStyle = outerGlow;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 140 * zoom, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ── 2. 3D SEGMENTED GIMBAL COORDINATE RINGS ──
-    gimbalRings.forEach(function(ring){
-      var rAngle = pulseTime * ring.speed * 8;
-      var numSegments = ring.dashCount;
-
-      for(var s = 0; s < numSegments; s++){
-        var a1 = (s / numSegments) * Math.PI * 2 + rAngle;
-        var a2 = ((s + 0.55) / numSegments) * Math.PI * 2 + rAngle;
-
-        var rx1 = ring.radius * Math.cos(a1);
-        var rz1 = ring.radius * Math.sin(a1);
-        var ry1 = (rx1 * Math.sin(ring.tiltX) + rz1 * Math.cos(ring.tiltX)) * ring.tiltY;
-
-        var rx2 = ring.radius * Math.cos(a2);
-        var rz2 = ring.radius * Math.sin(a2);
-        var ry2 = (rx2 * Math.sin(ring.tiltX) + rz2 * Math.cos(ring.tiltX)) * ring.tiltY;
-
-        var p1 = project(rx1, ry1, rz1, cosY, sinY, cosX, sinX);
-        var p2 = project(rx2, ry2, rz2, cosY, sinY, cosX, sinX);
-
-        var zNorm = (p1.z + ring.radius) / (ring.radius * 2);
-        var alpha = Math.max(0.12, Math.min(0.95, zNorm));
-
-        ctx.strokeStyle = "rgba(245, 158, 11, " + alpha + ")";
-        ctx.lineWidth = Math.max(1, p1.scale * (s % 4 === 0 ? 2.2 : 1.2));
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-
-        if(s % 4 === 0){
-          var outRad = ring.radius + ring.tickLen;
-          var rxT = outRad * Math.cos(a1);
-          var rzT = outRad * Math.sin(a1);
-          var ryT = (rxT * Math.sin(ring.tiltX) + rzT * Math.cos(ring.tiltX)) * ring.tiltY;
-          var pT = project(rxT, ryT, rzT, cosY, sinY, cosX, sinX);
-
-          ctx.strokeStyle = "rgba(254, 243, 199, " + (alpha * 0.85) + ")";
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(pT.x, pT.y);
-          ctx.stroke();
-        }
-      }
-    });
-
-    // ── 3. 3D STAR SWARM (DEPTH-SORTED) ──
-    var projectedPts = [];
-    for(var i = 0; i < particles.length; i++){
-      var pt = particles[i];
-      var prj = project(pt.x, pt.y, pt.z, cosY, sinY, cosX, sinX);
-      var alpha = (prj.z + sphereRad) / (sphereRad * 2);
-      alpha = Math.max(0.08, Math.min(0.95, alpha));
-      projectedPts.push({ x: prj.x, y: prj.y, z: prj.z, scale: prj.scale, alpha: alpha, sz: pt.baseSize });
-    }
-    projectedPts.sort(function(a, b){ return a.z - b.z; });
-
-    for(var j = 0; j < projectedPts.length; j++){
-      var p = projectedPts[j];
-      var dotR = p.sz * p.scale;
-      ctx.fillStyle = "rgba(245, 158, 11, " + p.alpha + ")";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-      ctx.fill();
-
-      if(p.alpha > 0.65 && p.sz > 1.2){
-        ctx.fillStyle = "rgba(255, 255, 255, " + (p.alpha * 0.9) + ")";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, dotR * 0.45, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // ── 4. 3D HIERARCHICAL ORBITAL CLUSTERS & SATELLITE BRANCHES ──
-    activeHitTargets = [];
-
-    orbitalClusters.forEach(function(cluster){
-      var curAngle = cluster.angle + pulseTime * 0.006;
-      var nx = cluster.dist * Math.cos(curAngle);
-      var nz = cluster.dist * Math.sin(curAngle);
-      var ny = (nx * 0.35) * cluster.tilt;
-
-      var p = project(nx, ny, nz, cosY, sinY, cosX, sinX);
-      var zNorm = (p.z + cluster.dist) / (cluster.dist * 2);
-      var parentAlpha = Math.max(0.2, Math.min(1.0, zNorm));
-
-      var isParentHov = (hoveredNode && hoveredNode.id === cluster.id);
-      var isChildOfParentHov = (hoveredNode && hoveredNode.parentId === cluster.id);
-      var clusterLit = isParentHov || isChildOfParentHov;
-
-      // Coordinate ray connecting parent hub to central core
-      ctx.strokeStyle = clusterLit ? "rgba(254, 243, 199, 0.95)" : "rgba(245, 158, 11, " + (parentAlpha * 0.35) + ")";
-      ctx.lineWidth = clusterLit ? 1.8 : 1;
-      ctx.setLineDash([3, 5]);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Draw local sub-orbital orbit circle in 3D around parent
-      var orbitR = 95;
-      ctx.strokeStyle = clusterLit ? "rgba(245, 158, 11, 0.55)" : "rgba(245, 158, 11, 0.12)";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 5]);
-      ctx.beginPath();
-      for(var a = 0; a <= Math.PI * 2; a += 0.25){
-        var lox = nx + orbitR * Math.cos(a);
-        var loz = nz + orbitR * Math.sin(a);
-        var loy = ny + (orbitR * 0.35 * Math.sin(a)) * cluster.tilt;
-        var lp = project(lox, loy, loz, cosY, sinY, cosX, sinX);
-        if(a === 0) ctx.moveTo(lp.x, lp.y);
-        else ctx.lineTo(lp.x, lp.y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // ── DRAW CHILD SATELLITE BRANCHES (E.G. WIKIPEDIA UNDER STUDY) ──
-      for(var c = 0; c < cluster.children.length; c++){
-        var child = cluster.children[c];
-        child.parentId = cluster.id;
-        child.parentName = cluster.name;
-        child.parentCategory = cluster.category;
-
-        var cAngle = curAngle + child.subAngle + (pulseTime * 0.014);
-        var cx_pos = nx + child.subDist * Math.cos(cAngle);
-        var cz_pos = nz + child.subDist * Math.sin(cAngle);
-        var cy_pos = ny + (child.subDist * 0.4 * Math.sin(cAngle)) + (child.subTilt * 45);
-
-        var cp = project(cx_pos, cy_pos, cz_pos, cosY, sinY, cosX, sinX);
-        var czNorm = (cp.z + cluster.dist) / (cluster.dist * 2);
-        var childAlpha = Math.max(0.2, Math.min(1.0, czNorm));
-        var isThisChildHov = (hoveredNode && hoveredNode.id === child.id);
-
-        // Luminous branch laser connecting parent to child
-        var branchActive = isThisChildHov || isParentHov;
-        ctx.strokeStyle = branchActive ? "#fbbf24" : "rgba(245, 158, 11, " + (childAlpha * 0.45) + ")";
-        ctx.lineWidth = branchActive ? 2.2 : 1.1;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(cp.x, cp.y);
-        ctx.stroke();
-
-        // Flowing data photon on the branch ray
-        var photonProg = (pulseTime * 0.9 + c * 0.33) % 1;
-        var phX = p.x + (cp.x - p.x) * photonProg;
-        var phY = p.y + (cp.y - p.y) * photonProg;
-        ctx.fillStyle = branchActive ? "#ffffff" : "rgba(254, 243, 199, 0.75)";
-        ctx.beginPath();
-        ctx.arc(phX, phY, (branchActive ? 2.5 : 1.5) * cp.scale, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Child node disc
-        var cnr = (isThisChildHov ? 7.5 : 5) * cp.scale;
-        ctx.fillStyle = isThisChildHov ? "#ffffff" : "rgba(245, 158, 11, " + childAlpha + ")";
-        ctx.beginPath();
-        ctx.arc(cp.x, cp.y, cnr, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = isThisChildHov ? "#fbbf24" : "rgba(254, 243, 199, 0.8)";
-        ctx.lineWidth = isThisChildHov ? 2 : 1;
-        ctx.stroke();
-
-        // Child label & Breadcrumb
-        if(isThisChildHov){
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold " + Math.round(11 * cp.scale) + "px 'SF Mono', monospace";
-          ctx.textAlign = "center";
-          ctx.fillText("[" + cluster.category + "] ➔ " + child.name, cp.x, cp.y + cnr + 14);
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "600 " + Math.round(9 * cp.scale) + "px 'SF Mono', monospace";
-          ctx.fillText("CLICK TO OPEN", cp.x, cp.y + cnr + 26);
-        } else {
-          ctx.fillStyle = "rgba(254, 243, 199, " + (childAlpha * 0.85) + ")";
-          ctx.font = "600 " + Math.round(8 * cp.scale) + "px 'SF Mono', monospace";
-          ctx.textAlign = "center";
-          ctx.fillText(child.name, cp.x, cp.y + cnr + 11);
-        }
-
-        activeHitTargets.push({
-          target: child,
-          x: cp.x,
-          y: cp.y,
-          r: 22 * cp.scale
-        });
-      }
-
-      // ── DRAW PRIMARY CLUSTER HUB NODE ──
-      var pnr = (isParentHov ? 10 : 7.5) * p.scale;
-      ctx.fillStyle = isParentHov ? "#ffffff" : "rgba(245, 158, 11, " + parentAlpha + ")";
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, pnr, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = isParentHov ? "#fbbf24" : "#ffffff";
-      ctx.lineWidth = isParentHov ? 2.5 : 1.2;
-      ctx.stroke();
-
-      if(isParentHov){
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold " + Math.round(12 * p.scale) + "px 'SF Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(cluster.fullName || cluster.name, p.x, p.y + pnr + 16);
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "600 " + Math.round(9.5 * p.scale) + "px 'SF Mono', monospace";
-        ctx.fillText("PRIMARY HUB // CLICK TO ENGAGE", p.x, p.y + pnr + 28);
-      } else {
-        ctx.fillStyle = "rgba(254, 243, 199, " + (parentAlpha * 0.9) + ")";
-        ctx.font = "bold " + Math.round(9.5 * p.scale) + "px 'SF Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(cluster.name, p.x, p.y + pnr + 14);
-      }
-
-      activeHitTargets.push({
-        target: cluster,
-        x: p.x,
-        y: p.y,
-        r: 26 * p.scale
-      });
-    });
-
-    requestAnimationFrame(draw);
-  }
-  draw();
-
-  window.reset3DCamera = function(){
-    targetRotX = 0.12;
-    targetRotY = 0.35;
-    targetZoom = 1.0;
-    updateZoomHUD();
-    toast('Camera & Zoom reset to origin', 'ok');
-  };
 
   window.adjust3DZoom = function(delta){
-    targetZoom = Math.max(0.45, Math.min(2.5, targetZoom + delta));
+    targetZoom = Math.max(0.5, Math.min(2.2, targetZoom + delta));
     updateZoomHUD();
   };
 
   window.reset3DZoom = function(){
     targetZoom = 1.0;
+    targetRotation.x = 0.15;
+    targetRotation.y = 0;
     updateZoomHUD();
-    toast('3D Zoom reset to 100%', 'ok');
+    toast('HUD Camera & Zoom reset', 'ok');
   };
 
-  function updateZoomHUD(){
-    var el = document.getElementById('hud-zoom-val');
-    if(el) el.textContent = Math.round(targetZoom * 100) + '%';
-  }
+  // 8. Dynamic Voice Waveform & Equalizer Animation
+  function updateVoiceVisualizers(time){
+    var st = document.getElementById('hud-state');
+    var state = st ? (st.textContent || 'STANDBY').trim().toUpperCase() : 'STANDBY';
+    var isSpeaking = (state === 'SPEAKING');
+    var isListening = (state === 'LISTENING');
+    var isProcessing = (state === 'PROCESSING');
 
-  // Uptime & Dynamic Audio Bar
-  var startTime = Date.now();
-  setInterval(function(){
-    var elapsed = Math.floor((Date.now() - startTime) / 1000);
-    var mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
-    var secs = String(elapsed % 60).padStart(2, '0');
-    var upEl = document.getElementById('hud-uptime');
-    if(upEl) upEl.textContent = mins + ':' + secs;
+    // Update 3D Waveform Ring Vertices
+    var posAttr = waveGeom.attributes.position;
+    var arr = posAttr.array;
+    var baseRad = 148;
+    var amp = isSpeaking ? 28 : (isListening ? 14 : (isProcessing ? 8 : 3.5));
 
-    var bar = document.getElementById('hud-audio-bar');
-    if(bar){
-      if(isVisualizerActive){
-        bar.style.width = (45 + Math.random() * 50).toFixed(0) + '%';
+    for(var i = 0; i < waveCount; i++){
+      var angle = (i / waveCount) * Math.PI * 2;
+      var harmonic = Math.sin(angle * 6 + time * 6) * Math.cos(angle * 3 - time * 4);
+      var r = baseRad + harmonic * amp;
+      arr[i * 3]     = Math.cos(angle) * r;
+      arr[i * 3 + 1] = Math.sin(angle) * r;
+      arr[i * 3 + 2] = Math.sin(angle * 4 + time * 3) * (amp * 0.4);
+    }
+    posAttr.needsUpdate = true;
+
+    // Update 16-Bar DOM Equalizer
+    var bars = document.querySelectorAll('#hud-eq-bars .eq-bar');
+    if(bars.length > 0){
+      bars.forEach(function(b, idx){
+        var hPct;
+        if(isSpeaking){
+          hPct = 20 + Math.abs(Math.sin(time * 8 + idx * 0.45)) * 80;
+        } else if(isListening){
+          hPct = 15 + Math.abs(Math.sin(time * 4 + idx * 0.3)) * 50;
+        } else if(isProcessing){
+          hPct = 10 + Math.abs(Math.sin(time * 12 + idx * 0.6)) * 60;
+        } else {
+          hPct = 8 + Math.abs(Math.sin(time * 1.5 + idx * 0.2)) * 18;
+        }
+        b.style.height = Math.round(hPct) + '%';
+      });
+    }
+
+    // Audio frequency readout
+    var freqEl = document.getElementById('hud-audio-freq');
+    if(freqEl){
+      if(isSpeaking){
+        freqEl.textContent = (2.4 + Math.sin(time * 5) * 0.8).toFixed(1) + ' kHz // SPEAKING';
+        freqEl.style.color = 'var(--cyan-bright)';
+      } else if(isListening){
+        freqEl.textContent = (1.8 + Math.sin(time * 3) * 0.5).toFixed(1) + ' kHz // LISTENING';
+        freqEl.style.color = 'var(--hud-green)';
+      } else if(isProcessing){
+        freqEl.textContent = 'NEURAL STREAM // THINKING';
+        freqEl.style.color = 'var(--hud-orange)';
       } else {
-        bar.style.width = (20 + Math.sin(Date.now() / 600) * 15).toFixed(0) + '%';
+        freqEl.textContent = '1.2 kHz // NOMINAL';
+        freqEl.style.color = 'var(--text-dim)';
       }
     }
-  }, 100);
+  }
+
+  // 9. Main Three.js Render Loop
+  var clock = new THREE.Clock();
+
+  function animate(){
+    requestAnimationFrame(animate);
+
+    var elapsedTime = clock.getElapsedTime();
+
+    // Damped camera rotation (parallax + user drag)
+    currentRotation.x += (targetRotation.x - currentRotation.x) * 0.08;
+    currentRotation.y += (targetRotation.y - currentRotation.y) * 0.08;
+    currentZoom += (targetZoom - currentZoom) * 0.08;
+
+    reactorGroup.rotation.x = currentRotation.x;
+    reactorGroup.rotation.y = currentRotation.y;
+    camera.position.z = 720 / currentZoom;
+
+    // Center Core Rotation & Pulse
+    coreWireframe.rotation.x += 0.008;
+    coreWireframe.rotation.y += 0.012;
+    corePoints.rotation.x = coreWireframe.rotation.x;
+    corePoints.rotation.y = coreWireframe.rotation.y;
+
+    var pulseScale = 1.0 + Math.sin(elapsedTime * 2.8) * 0.06;
+    innerCore.scale.set(pulseScale, pulseScale, pulseScale);
+    innerCore.rotation.y -= 0.015;
+
+    // Gimbal Rings Counter-Rotation
+    ring1.rotation.z += 0.014;
+    ring2.rotation.z -= 0.008;
+    ring3.rotation.z += 0.006;
+    ring4.rotation.z -= 0.004;
+
+    // Star Swarm rotation
+    starSwarm.rotation.y += 0.0015;
+    starSwarm.rotation.x -= 0.0008;
+
+    // Rotate Orbital Cluster Group
+    clusterNodesGroup.rotation.z += 0.0012;
+
+    // Keep all labels positioned straight down under each orb & upright facing camera
+    var cosZ = Math.cos(clusterNodesGroup.rotation.z);
+    var sinZ = Math.sin(clusterNodesGroup.rotation.z);
+    for(var si = 0; si < interactiveSprites.length; si++){
+      var item = interactiveSprites[si];
+      var off = item.offsetY;
+      var dx = -sinZ * off;
+      var dy = -cosZ * off;
+      item.sprite.position.set(
+        item.parentMesh.position.x + dx,
+        item.parentMesh.position.y + dy,
+        item.parentMesh.position.z
+      );
+      item.sprite.material.rotation = -clusterNodesGroup.rotation.z;
+    }
+
+    // Update Voice Waveforms
+    updateVoiceVisualizers(elapsedTime);
+
+    renderer.render(scene, camera);
+  }
+
+  
+        // Expose dynamic color changer for Orb, Rings & Satellite Systems (Full Chroma Sync)
+    window.updateOrbChroma = function(hexStr){
+      try {
+        var c = new THREE.Color(hexStr);
+        var hexNum = c.getHex();
+
+        // 1. Center Arc-Reactor Core
+        if(typeof wireMat !== 'undefined' && wireMat) wireMat.color.setHex(hexNum);
+        if(typeof icoPtsMat !== 'undefined' && icoPtsMat) icoPtsMat.color.setHex(hexNum);
+        if(typeof innerMat !== 'undefined' && innerMat) innerMat.color.setHex(hexNum);
+        if(typeof coreLight !== 'undefined' && coreLight) coreLight.color.setHex(hexNum);
+
+        // 2. Concentric Gimbal Rings
+        if(typeof ring1 !== 'undefined' && ring1 && ring1.material) ring1.material.color.setHex(hexNum);
+        if(typeof ring2 !== 'undefined' && ring2 && ring2.material) ring2.material.color.setHex(hexNum);
+        if(typeof ring3 !== 'undefined' && ring3 && ring3.material) ring3.material.color.setHex(hexNum);
+        if(typeof ring4 !== 'undefined' && ring4 && ring4.material) ring4.material.color.setHex(hexNum);
+
+        // 3. Audio Waveform & Star Swarm
+        if(typeof waveMat !== 'undefined' && waveMat) waveMat.color.setHex(hexNum);
+        if(typeof waveLoop !== 'undefined' && waveLoop && waveLoop.material) waveLoop.material.color.setHex(hexNum);
+        if(typeof starSwarm !== 'undefined' && starSwarm && starSwarm.material) starSwarm.material.color.setHex(hexNum);
+        if(typeof swarmMat !== 'undefined' && swarmMat) swarmMat.color.setHex(hexNum);
+
+        // 4. Smaller Satellites, Cluster Hubs & Connecting Laser Lines
+        if(typeof clusterNodesGroup !== 'undefined' && clusterNodesGroup){
+          clusterNodesGroup.traverse(function(obj){
+            if(obj.material && (obj.isMesh || obj.isLine || obj.isPoints)){
+              if(Array.isArray(obj.material)){
+                obj.material.forEach(function(m){ if(m.color) m.color.setHex(hexNum); });
+              } else if(obj.material.color){
+                obj.material.color.setHex(hexNum);
+              }
+            }
+          });
+        }
+
+        // 5. Satellite Floating Holographic Label Sprites
+        if(typeof interactiveSprites !== 'undefined' && interactiveSprites){
+          interactiveSprites.forEach(function(item){
+            if(item.sprite && item.sprite._canvas && typeof drawOrbLabelCanvas === 'function'){
+              drawOrbLabelCanvas(item.sprite._canvas, item.sprite._text, item.sprite._subText, hexStr, item.sprite._isMain);
+              if(item.sprite.material && item.sprite.material.map){
+                item.sprite.material.map.needsUpdate = true;
+              }
+            }
+          });
+        }
+
+        // 6. CSS Global Theme Variables
+        document.documentElement.style.setProperty('--accent', hexStr);
+        var r = Math.round(c.r * 255);
+        var g = Math.round(c.g * 255);
+        var b = Math.round(c.b * 255);
+        var rgbStr = r + ',' + g + ',' + b;
+        document.documentElement.style.setProperty('--accent-glow', 'rgba(' + rgbStr + ', 0.45)');
+        document.documentElement.style.setProperty('--cyan', hexStr);
+        document.documentElement.style.setProperty('--cyan-bright', hexStr);
+        document.documentElement.style.setProperty('--cyan-glow', 'rgba(' + rgbStr + ', 0.55)');
+        document.documentElement.style.setProperty('--cyan-border', 'rgba(' + rgbStr + ', 0.38)');
+        document.documentElement.style.setProperty('--panel-border-bright', hexStr);
+      } catch(err) {
+        console.warn('Orb Chroma shifting error:', err);
+      }
+    };
+
+    animate();
 })();
 
 // ── UNIVERSAL WINDOW RESIZING & MAXIMIZE SYSTEM ──
@@ -3110,6 +3630,14 @@ function doStatus(){
       if(lapStats && d.laptop){
         lapStats.textContent = 'CPU ' + d.laptop.cpu + '% · RAM ' + d.laptop.ram + '% · Battery ' + d.battery.percent + '%';
       }
+      var lapCpuTxt = document.getElementById('hud-lap-cpu-txt'); if(lapCpuTxt && d.laptop) lapCpuTxt.textContent = d.laptop.cpu + '%';
+      var lapCpuBar = document.getElementById('hud-lap-cpu-bar'); if(lapCpuBar && d.laptop) lapCpuBar.style.width = d.laptop.cpu + '%';
+      var lapRamTxt = document.getElementById('hud-lap-ram-txt'); if(lapRamTxt && d.laptop) lapRamTxt.textContent = d.laptop.ram + '%';
+      var lapRamBar = document.getElementById('hud-lap-ram-bar'); if(lapRamBar && d.laptop) lapRamBar.style.width = d.laptop.ram + '%';
+      if(d.laptop && d.laptop.uptime){
+        var upEl = document.getElementById('hud-uptime'); if(upEl) upEl.textContent = d.laptop.uptime;
+
+      }
     }
   })
   .catch(function(){});
@@ -3239,6 +3767,12 @@ function fetchPCStats(){
     var dsk=(/Disk:?\s*([\d.]+)/i.exec(txt)||[,'?'])[1];
     var up=(/Uptime:?\s*(.+?)(?:,|$)/i.exec(txt)||[,'?'])[1];
     document.getElementById('p-cpu').textContent=cpu+'%';document.getElementById('p-cpu-b').style.width=cpu+'%';
+    var pcCpuTxt = document.getElementById('hud-pc-cpu-txt'); if(pcCpuTxt) pcCpuTxt.textContent=cpu+'%';
+    var pcCpuBar = document.getElementById('hud-pc-cpu-bar'); if(pcCpuBar) pcCpuBar.style.width=cpu+'%';
+    var pcRamTxt = document.getElementById('hud-pc-ram-txt'); if(pcRamTxt) pcRamTxt.textContent=ram+'%';
+    var pcRamBar = document.getElementById('hud-pc-ram-bar'); if(pcRamBar) pcRamBar.style.width=ram+'%';
+    var pcPing = document.getElementById('hud-pc-ping'); if(pcPing) pcPing.textContent='4ms [SYNC]';
+
     document.getElementById('p-ram').textContent=ram+'%';document.getElementById('p-ram-b').style.width=ram+'%';
     document.getElementById('p-disk').textContent=dsk+'%';document.getElementById('p-disk-b').style.width=dsk+'%';
     document.getElementById('p-up').textContent=up;
@@ -4251,7 +4785,7 @@ function openFileUI(encodedPath){
 
 function clearPCTerminal(){
   var box = document.getElementById('pc-term-box');
-  if(box) box.textContent = 'jay@zorin:~$ ';
+  if(box) box.textContent = 'user@remote-pc:~$ ';
 }
 
 function quickPCTerm(cmd){
@@ -4266,7 +4800,7 @@ function runPCTerminalUI(){
   if(!cmd) return;
   var box = document.getElementById('pc-term-box');
   if(box){
-    box.textContent += '\njay@zorin:~$ ' + cmd + '\n[Executing...]';
+    box.textContent += '\nuser@remote-pc:~$ ' + cmd + '\n[Executing...]';
     box.scrollTop = box.scrollHeight;
   }
   inp.value = '';
@@ -4426,5 +4960,326 @@ window.addEventListener('DOMContentLoaded', function(){
 });
 
 </script>
+
+<!-- ================= COLOR THEME CUSTOMIZER MODAL (ITACHI UI/UX HUD SUITE) ================= -->
+<style>
+.color-picker-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10000;
+  background: rgba(8, 15, 26, 0.88);
+  border: 1px solid var(--accent, #00d2ff);
+  color: var(--accent, #00d2ff);
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-family: 'Orbitron', 'Rajdhani', sans-serif;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 0 18px var(--accent-glow, rgba(0, 210, 255, 0.4)), inset 0 0 10px rgba(0, 210, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  backdrop-filter: blur(12px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.color-picker-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 0 28px var(--accent, #00d2ff), inset 0 0 15px rgba(255, 255, 255, 0.2);
+  background: var(--accent, #00d2ff);
+  color: #040810;
+}
+.color-palette-modal {
+  display: none;
+  position: fixed;
+  bottom: 78px;
+  right: 24px;
+  width: 330px;
+  background: rgba(6, 12, 22, 0.94);
+  border: 1px solid var(--accent, #00d2ff);
+  border-radius: 14px;
+  padding: 18px 20px;
+  z-index: 10001;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.85), 0 0 25px var(--accent-glow, rgba(0, 210, 255, 0.3));
+  font-family: 'Rajdhani', sans-serif;
+}
+.color-palette-modal.open {
+  display: block;
+  animation: fadeInModal 0.22s ease-out;
+}
+@keyframes fadeInModal {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+.color-swatch:hover {
+  transform: scale(1.18);
+  border-color: #ffffff;
+  z-index: 2;
+}
+.color-swatch.active {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 14px #ffffff, 0 0 25px currentColor;
+  transform: scale(1.08);
+}
+.color-swatch.active::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  text-shadow: 0 0 4px #000;
+}
+.color-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text2, #8ba3c7);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.custom-color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.custom-color-input {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+.custom-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.custom-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
+}
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modal-icon-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #8ba3c7;
+  cursor: pointer;
+  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.modal-icon-btn:hover {
+  color: #fff;
+  border-color: var(--accent, #00d2ff);
+  background: rgba(0, 210, 255, 0.15);
+}
+</style>
+
+<button class="color-picker-btn" id="theme-palette-btn" onclick="toggleColorModal()">
+  <i class="fa fa-palette"></i> THEME PALETTE
+</button>
+
+<div class="color-palette-modal" id="color-palette-modal">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+    <span style="font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800; color:#fff; letter-spacing:1.5px; display:flex; align-items:center; gap:6px;">
+      <i class="fa fa-sliders" style="color:var(--accent,#00d2ff);"></i> CHROMA MATRIX
+    </span>
+    <div class="modal-header-actions">
+      <button class="modal-icon-btn" onclick="resetChromaDefault()" title="Reset to Arc Cyan Default">
+        <i class="fa fa-rotate-left"></i>
+      </button>
+      <button class="modal-icon-btn" onclick="toggleColorModal()" title="Close">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Orb Color Section -->
+  <div class="color-section-title">
+    <span>Orb & Core Energy</span>
+    <span id="current-orb-hex" style="font-family:'JetBrains Mono'; font-size:10px; color:var(--accent,#00d2ff); font-weight:700;">#00D2FF</span>
+  </div>
+  <div class="color-grid" id="orb-palette-grid">
+    <div class="color-swatch active" data-color="#00d2ff" style="background:#00d2ff;" onclick="setOrbColor('#00d2ff', this)" title="Arc Electric Cyan"></div>
+    <div class="color-swatch" data-color="#00ff88" style="background:#00ff88;" onclick="setOrbColor('#00ff88', this)" title="Emerald Plasma"></div>
+    <div class="color-swatch" data-color="#a855f7" style="background:#a855f7;" onclick="setOrbColor('#a855f7', this)" title="Cosmic Purple"></div>
+    <div class="color-swatch" data-color="#ff2d55" style="background:#ff2d55;" onclick="setOrbColor('#ff2d55', this)" title="Crimson Core"></div>
+    <div class="color-swatch" data-color="#ff9500" style="background:#ff9500;" onclick="setOrbColor('#ff9500', this)" title="Solar Amber"></div>
+  </div>
+  <div class="custom-color-row">
+    <input type="color" id="custom-orb-picker" class="custom-color-input" value="#00d2ff" oninput="setOrbColor(this.value, null)" onchange="setOrbColor(this.value, null)">
+    <span style="font-size:12px; font-weight:600; color:var(--text2,#8ba3c7);">Custom Energy Hex</span>
+  </div>
+
+  <!-- Background Theme Section -->
+  <div class="color-section-title" style="margin-top:16px;">
+    <span>Ambient Background</span>
+    <span id="current-bg-hex" style="font-family:'JetBrains Mono'; font-size:10px; color:var(--text2,#8ba3c7); font-weight:700;">#060B13</span>
+  </div>
+  <div class="color-grid" id="bg-palette-grid">
+    <div class="color-swatch active" data-color="#060b13" style="background:#060b13; border-color:#1a2a40;" onclick="setBgTheme('#060b13', '#02060b', this)" title="Deep Space Black"></div>
+    <div class="color-swatch" data-color="#0b1329" style="background:#0b1329; border-color:#1a2a40;" onclick="setBgTheme('#0b1329', '#050a17', this)" title="Midnight Navy"></div>
+    <div class="color-swatch" data-color="#140824" style="background:#140824; border-color:#2a1445;" onclick="setBgTheme('#140824', '#0a0314', this)" title="Nebula Violet"></div>
+    <div class="color-swatch" data-color="#051a14" style="background:#051a14; border-color:#0f3629;" onclick="setBgTheme('#051a14', '#020d0a', this)" title="Matrix Emerald"></div>
+    <div class="color-swatch" data-color="#1a0808" style="background:#1a0808; border-color:#360f0f;" onclick="setBgTheme('#1a0808', '#0d0202', this)" title="Cyberpunk Abyss"></div>
+  </div>
+  <div class="custom-color-row">
+    <input type="color" id="custom-bg-picker" class="custom-color-input" value="#060b13" oninput="setBgTheme(this.value, '#000000', null)" onchange="setBgTheme(this.value, '#000000', null)">
+    <span style="font-size:12px; font-weight:600; color:var(--text2,#8ba3c7);">Custom Space Color</span>
+  </div>
+</div>
+
+<script>
+function toggleColorModal(){
+  var m = document.getElementById('color-palette-modal');
+  if(m) m.classList.toggle('open');
+}
+
+function hexToRgbStr(hex){
+  var c = hex.replace('#', '');
+  if(c.length === 3) c = c.split('').map(function(x){ return x + x; }).join('');
+  var num = parseInt(c, 16);
+  var r = (num >> 16) & 255;
+  var g = (num >> 8) & 255;
+  var b = num & 255;
+  return r + ',' + g + ',' + b;
+}
+
+function setOrbColor(hex, el){
+  if(window.updateOrbChroma){
+    window.updateOrbChroma(hex);
+  }
+  var hexUp = hex.toUpperCase();
+  var rgb = hexToRgbStr(hex);
+
+  // Sync Global Theme Variables for Full HUD Synergy
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-glow', 'rgba(' + rgb + ', 0.45)');
+  document.documentElement.style.setProperty('--cyan', hex);
+  document.documentElement.style.setProperty('--cyan-bright', hex);
+  document.documentElement.style.setProperty('--cyan-glow', 'rgba(' + rgb + ', 0.55)');
+  document.documentElement.style.setProperty('--cyan-border', 'rgba(' + rgb + ', 0.38)');
+  document.documentElement.style.setProperty('--panel-border-bright', hex);
+
+  var hexLabel = document.getElementById('current-orb-hex');
+  if(hexLabel) hexLabel.textContent = hexUp;
+  var customPicker = document.getElementById('custom-orb-picker');
+  if(customPicker) customPicker.value = hex;
+
+  // Active Swatch Highlight
+  var orbSwatches = document.querySelectorAll('#orb-palette-grid .color-swatch');
+  orbSwatches.forEach(function(s){ s.classList.remove('active'); });
+  if(el){
+    el.classList.add('active');
+  } else {
+    orbSwatches.forEach(function(s){
+      if((s.getAttribute('data-color') || '').toLowerCase() === hex.toLowerCase()){
+        s.classList.add('active');
+      }
+    });
+  }
+
+  try {
+    localStorage.setItem('jarvis_orb_color', hex);
+  } catch(e){}
+
+  toast('Orb energy shifted to ' + hexUp, 'ok');
+}
+
+function setBgTheme(bgHex, bgDeepHex, el){
+  bgDeepHex = bgDeepHex || bgHex;
+  var bgUp = bgHex.toUpperCase();
+
+  document.documentElement.style.setProperty('--bg', bgHex);
+  document.documentElement.style.setProperty('--bg-deep', bgDeepHex);
+
+  document.body.style.background = 'radial-gradient(ellipse at center, ' + bgHex + ' 0%, ' + bgDeepHex + ' 60%, #000000 100%)';
+  document.body.style.backgroundColor = bgHex;
+
+  var hexLabel = document.getElementById('current-bg-hex');
+  if(hexLabel) hexLabel.textContent = bgUp;
+  var customPicker = document.getElementById('custom-bg-picker');
+  if(customPicker) customPicker.value = bgHex;
+
+  // Active Swatch Highlight
+  var bgSwatches = document.querySelectorAll('#bg-palette-grid .color-swatch');
+  bgSwatches.forEach(function(s){ s.classList.remove('active'); });
+  if(el){
+    el.classList.add('active');
+  } else {
+    bgSwatches.forEach(function(s){
+      if((s.getAttribute('data-color') || '').toLowerCase() === bgHex.toLowerCase()){
+        s.classList.add('active');
+      }
+    });
+  }
+
+  try {
+    localStorage.setItem('jarvis_bg_color', JSON.stringify({bg: bgHex, deep: bgDeepHex}));
+  } catch(e){}
+
+  toast('Background theme updated to ' + bgUp, 'info');
+}
+
+function resetChromaDefault(){
+  setOrbColor('#00d2ff', null);
+  setBgTheme('#060b13', '#02060b', null);
+  toast('Chroma Matrix reset to Arc Cyan default', 'ok');
+}
+
+// Restore saved preferences on startup
+window.addEventListener('DOMContentLoaded', function(){
+  try {
+    var savedOrb = localStorage.getItem('jarvis_orb_color');
+    if(savedOrb){
+      setOrbColor(savedOrb, null);
+    }
+    var savedBg = localStorage.getItem('jarvis_bg_color');
+    if(savedBg){
+      var bgData = JSON.parse(savedBg);
+      setBgTheme(bgData.bg, bgData.deep, null);
+    }
+  } catch(e){}
+});
+</script>
+
 </body>
 </html>
